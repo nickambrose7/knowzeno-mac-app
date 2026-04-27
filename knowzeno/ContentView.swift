@@ -8,17 +8,38 @@
 import SwiftUI
 
 struct ContentView: View {
+    @ObservedObject var capture: SelectedTextCapture
+
     var body: some View {
-        VStack {
-            Image(systemName: "globe")
-                .imageScale(.large)
-                .foregroundStyle(.tint)
-            Text("Hello, world!")
+        VStack(alignment: .leading, spacing: 16) {
+            HStack(spacing: 10) {
+                Image(systemName: "text.viewfinder")
+                    .imageScale(.large)
+                    .foregroundStyle(.tint)
+
+                Text("knowzeno")
+                    .font(.title2)
+                    .fontWeight(.semibold)
+            }
+
+            Text(capture.statusMessage)
+                .foregroundStyle(.secondary)
+
+            Button("Capture Selected Text") {
+                capture.captureSelectedText()
+            }
+            .keyboardShortcut("k", modifiers: [.control, .option, .command])
+
+            TextEditor(text: .constant(capture.lastCapturedText))
+                .font(.body.monospaced())
+                .frame(minWidth: 420, minHeight: 220)
+                .border(.quaternary)
+                .accessibilityLabel("Last captured selected text")
         }
-        .padding()
+        .padding(24)
     }
 }
 
 #Preview {
-    ContentView()
+    ContentView(capture: SelectedTextCapture())
 }

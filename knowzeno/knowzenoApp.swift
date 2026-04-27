@@ -9,9 +9,23 @@ import SwiftUI
 
 @main
 struct knowzenoApp: App {
+    @StateObject private var capture = SelectedTextCapture()
+    @State private var hotKeyManager: HotKeyManager?
+
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            ContentView(capture: capture)
+                .onAppear {
+                    guard hotKeyManager == nil else {
+                        return
+                    }
+
+                    let manager = HotKeyManager {
+                        capture.captureSelectedText()
+                    }
+                    manager.register()
+                    hotKeyManager = manager
+                }
         }
     }
 }
