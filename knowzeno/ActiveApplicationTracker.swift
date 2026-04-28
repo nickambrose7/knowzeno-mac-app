@@ -4,17 +4,19 @@
 //
 
 import AppKit
-import Combine
+import Observation
 
 @MainActor
-final class ActiveApplicationTracker: ObservableObject {
+@Observable
+final class ActiveApplicationTracker {
     private(set) var lastExternalApplication: NSRunningApplication?
     private let ownBundleIdentifier = Bundle.main.bundleIdentifier
+    private var activationObserver: NSObjectProtocol?
 
     init() {
         updateLastExternalApplication(NSWorkspace.shared.frontmostApplication)
 
-        NSWorkspace.shared.notificationCenter.addObserver(
+        activationObserver = NSWorkspace.shared.notificationCenter.addObserver(
             forName: NSWorkspace.didActivateApplicationNotification,
             object: nil,
             queue: .main
@@ -25,6 +27,14 @@ final class ActiveApplicationTracker: ObservableObject {
 
             Task { @MainActor [weak self] in
                 self?.updateLastExternalApplication(application)
+            }
+        }
+    }
+
+    deinit {
+        MainActor.assumeIsolated {
+            if let activationObserver {
+                NSWorkspace.shared.notificationCenter.removeObserver(activationObserver)
             }
         }
     }

@@ -6,12 +6,13 @@
 import Carbon
 import Foundation
 
+@MainActor
 final class HotKeyManager {
     private var eventHandler: EventHandlerRef?
     private var hotKey: EventHotKeyRef?
-    private let action: () -> Void
+    private let action: @MainActor () -> Void
 
-    init(action: @escaping () -> Void) {
+    init(action: @MainActor @escaping () -> Void) {
         self.action = action
     }
 
@@ -45,7 +46,8 @@ final class HotKeyManager {
                 }
 
                 let manager = Unmanaged<HotKeyManager>.fromOpaque(userData).takeUnretainedValue()
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+                Task { @MainActor in
+                    try? await Task.sleep(for: .milliseconds(150))
                     manager.action()
                 }
 
@@ -69,12 +71,14 @@ final class HotKeyManager {
     }
 
     deinit {
-        if let hotKey {
-            UnregisterEventHotKey(hotKey)
-        }
+        MainActor.assumeIsolated {
+            if let hotKey {
+                UnregisterEventHotKey(hotKey)
+            }
 
-        if let eventHandler {
-            RemoveEventHandler(eventHandler)
+            if let eventHandler {
+                RemoveEventHandler(eventHandler)
+            }
         }
     }
 }

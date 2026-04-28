@@ -9,24 +9,14 @@ import SwiftUI
 
 @main
 struct knowzenoApp: App {
-    @StateObject private var capture = SelectedTextCapture()
-    @StateObject private var activeApplicationTracker = ActiveApplicationTracker()
+    @State private var capture = SelectedTextCapture()
+    @State private var activeApplicationTracker = ActiveApplicationTracker()
     @State private var hotKeyManager: HotKeyManager?
 
     var body: some Scene {
         WindowGroup {
             ContentView(capture: capture)
-                .onAppear {
-                    guard hotKeyManager == nil else {
-                        return
-                    }
-
-                    let manager = HotKeyManager {
-                        capture.captureSelectedText()
-                    }
-                    manager.register()
-                    hotKeyManager = manager
-                }
+                .task(registerHotKey)
         }
 
         MenuBarExtra("knowzeno", systemImage: "text.viewfinder") {
@@ -49,9 +39,22 @@ struct knowzenoApp: App {
     private func captureFromMenuBar() {
         activeApplicationTracker.reactivateLastExternalApplication()
 
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
+        Task {
+            try? await Task.sleep(for: .milliseconds(250))
             capture.captureSelectedText()
             NSApp.activate(ignoringOtherApps: true)
         }
+    }
+
+    private func registerHotKey() async {
+        guard hotKeyManager == nil else {
+            return
+        }
+
+        let manager = HotKeyManager {
+            capture.captureSelectedText()
+        }
+        manager.register()
+        hotKeyManager = manager
     }
 }

@@ -8,33 +8,39 @@
 import SwiftUI
 
 struct ContentView: View {
-    @ObservedObject var capture: SelectedTextCapture
+    let capture: SelectedTextCapture
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            HStack(spacing: 10) {
+        VStack(alignment: .leading) {
+            Label {
+                Text("knowzeno")
+                    .font(.title2)
+                    .bold()
+            } icon: {
                 Image(systemName: "text.viewfinder")
                     .imageScale(.large)
                     .foregroundStyle(.tint)
-
-                Text("knowzeno")
-                    .font(.title2)
-                    .fontWeight(.semibold)
             }
 
             Text(capture.statusMessage)
                 .foregroundStyle(.secondary)
 
-            Button("Capture Selected Text") {
-                capture.captureSelectedText()
-            }
-            .keyboardShortcut("k", modifiers: [.control, .option, .command])
+            Button("Capture Selected Text", action: capture.captureSelectedText)
+                .keyboardShortcut("k", modifiers: [.control, .option, .command])
 
-            TextEditor(text: .constant(capture.lastCapturedText))
-                .font(.body.monospaced())
-                .frame(minWidth: 420, minHeight: 220)
-                .border(.quaternary)
-                .accessibilityLabel("Last captured selected text")
+            ScrollView {
+                if capture.lastCapturedText.isEmpty {
+                    ContentUnavailableView("No captured text", systemImage: "text.viewfinder")
+                } else {
+                    Text(capture.lastCapturedText)
+                        .font(.body.monospaced())
+                        .textSelection(.enabled)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+            }
+            .frame(minWidth: 420, minHeight: 220)
+            .border(.quaternary)
+            .accessibilityLabel("Last captured selected text")
         }
         .padding(24)
     }
