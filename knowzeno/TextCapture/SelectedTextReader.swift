@@ -22,7 +22,7 @@ enum SelectedTextReader {
         }
     }
 
-    static func readSelectedText() -> Result<String, Error> {
+    static func readSelectedText(initiatingShortcut: GlobalKeyboardShortcut) -> Result<String, Error> {
         guard accessibilityPermissionIsGranted() else {
             return .failure(CaptureError.accessibilityPermissionMissing)
         }
@@ -35,7 +35,7 @@ enum SelectedTextReader {
         pasteboard.setString(marker, forType: .string)
         let markerChangeCount = pasteboard.changeCount
 
-        sendCopyShortcut()
+        sendCopyShortcut(initiatingShortcut: initiatingShortcut)
 
         let deadline = Date.now.addingTimeInterval(1.5)
         while pasteboard.changeCount == markerChangeCount && Date.now < deadline {
@@ -57,8 +57,8 @@ enum SelectedTextReader {
         return AXIsProcessTrustedWithOptions(options)
     }
 
-    private static func sendCopyShortcut() {
-        waitForHotKeyModifiersToClear()
+    private static func sendCopyShortcut(initiatingShortcut: GlobalKeyboardShortcut) {
+        waitForHotKeyModifiersToClear(initiatingShortcut: initiatingShortcut)
 
         let source = CGEventSource(stateID: .hidSystemState)
         let keyCodeForC = CGKeyCode(8)
@@ -73,9 +73,13 @@ enum SelectedTextReader {
         keyUp?.post(tap: .cghidEventTap)
     }
 
-    private static func waitForHotKeyModifiersToClear() {
-        let shortcutModifiers: CGEventFlags = [.maskCommand, .maskAlternate, .maskControl]
+    private static func waitForHotKeyModifiersToClear(initiatingShortcut: GlobalKeyboardShortcut) {
+        let shortcutModifiers = initiatingShortcut.modifiers.cgEventFlags
         let deadline = Date.now.addingTimeInterval(0.8)
+
+        guard shortcutModifiers.isEmpty == false else {
+            return
+        }
 
         while Date.now < deadline {
             let pressedModifiers = CGEventSource.flagsState(.hidSystemState).intersection(shortcutModifiers)

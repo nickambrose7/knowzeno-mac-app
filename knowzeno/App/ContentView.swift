@@ -9,6 +9,7 @@ import SwiftUI
 
 struct ContentView: View {
     let capture: SelectedTextCapture
+    let settings: AppSettings
 
     var body: some View {
         VStack(alignment: .leading) {
@@ -25,8 +26,12 @@ struct ContentView: View {
             Text(capture.statusMessage)
                 .foregroundStyle(.secondary)
 
-            Button("Capture Selected Text", action: capture.captureSelectedText)
-                .keyboardShortcut("k", modifiers: [.control, .option, .command])
+            Text("Global shortcut: \(settings.globalShortcut.displayText)")
+                .foregroundStyle(.secondary)
+
+            Button("Capture Selected Text", systemImage: "text.viewfinder") {
+                capture.captureSelectedText(initiatingShortcut: settings.globalShortcut)
+            }
 
             ScrollView {
                 if capture.lastCapturedText.isEmpty {
@@ -47,5 +52,5 @@ struct ContentView: View {
 }
 
 #Preview {
-    ContentView(capture: SelectedTextCapture())
+    ContentView(capture: SelectedTextCapture(), settings: AppSettings())
 }

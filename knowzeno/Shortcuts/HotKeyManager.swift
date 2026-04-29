@@ -10,20 +10,60 @@ import Foundation
 final class HotKeyManager {
     private var eventHandler: EventHandlerRef?
     private var hotKey: EventHotKeyRef?
+    private(set) var registeredShortcut: GlobalKeyboardShortcut?
     private let action: @MainActor () -> Void
 
     init(action: @MainActor @escaping () -> Void) {
         self.action = action
     }
 
-    func register() {
+    func register(_ shortcut: GlobalKeyboardShortcut) throws {
+        try installEventHandlerIfNeeded()
+
+        let hotKeyID = EventHotKeyID(signature: fourCharacterCode("KZNO"), id: 1)
+        var newHotKey: EventHotKeyRef?
+        let status = RegisterEventHotKey(
+            shortcut.keyCode,
+            shortcut.modifiers.carbonFlags,
+            hotKeyID,
+            GetApplicationEventTarget(),
+            0,
+            &newHotKey
+        )
+
+        guard status == noErr, let newHotKey else {
+            throw HotKeyError.registrationFailed(status)
+        }
+
+        if let hotKey {
+            UnregisterEventHotKey(hotKey)
+        }
+
+        hotKey = newHotKey
+        registeredShortcut = shortcut
+    }
+
+    func unregister() {
+        if let hotKey {
+            UnregisterEventHotKey(hotKey)
+        }
+
+        hotKey = nil
+        registeredShortcut = nil
+    }
+
+    private func installEventHandlerIfNeeded() throws {
+        guard eventHandler == nil else {
+            return
+        }
+
         var eventType = EventTypeSpec(
             eventClass: OSType(kEventClassKeyboard),
             eventKind: UInt32(kEventHotKeyPressed)
         )
 
         let selfPointer = Unmanaged.passUnretained(self).toOpaque()
-        InstallEventHandler(
+        let status = InstallEventHandler(
             GetApplicationEventTarget(),
             { _, event, userData in
                 guard let event, let userData else {
@@ -59,26 +99,32 @@ final class HotKeyManager {
             &eventHandler
         )
 
-        let hotKeyID = EventHotKeyID(signature: fourCharacterCode("KZNO"), id: 1)
-        RegisterEventHotKey(
-            UInt32(kVK_ANSI_K),
-            UInt32(cmdKey | optionKey | controlKey),
-            hotKeyID,
-            GetApplicationEventTarget(),
-            0,
-            &hotKey
-        )
+        guard status == noErr else {
+            throw HotKeyError.eventHandlerInstallationFailed(status)
+        }
     }
 
     deinit {
         MainActor.assumeIsolated {
-            if let hotKey {
-                UnregisterEventHotKey(hotKey)
-            }
+            unregister()
 
             if let eventHandler {
                 RemoveEventHandler(eventHandler)
             }
+        }
+    }
+}
+
+enum HotKeyError: LocalizedError {
+    case eventHandlerInstallationFailed(OSStatus)
+    case registrationFailed(OSStatus)
+
+    var errorDescription: String? {
+        switch self {
+        case .eventHandlerInstallationFailed(let status):
+            "Could not install the global shortcut handler. Carbon returned status \(status)."
+        case .registrationFailed(let status):
+            "Could not register that global shortcut. It may already be used by another app. Carbon returned status \(status)."
         }
     }
 }

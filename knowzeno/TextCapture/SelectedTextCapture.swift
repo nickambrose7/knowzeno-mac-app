@@ -10,10 +10,10 @@ import Observation
 @Observable
 final class SelectedTextCapture {
     private(set) var lastCapturedText = ""
-    private(set) var statusMessage = "Select text in another app, then press Control-Option-Command-K."
+    private(set) var statusMessage = "Select text in another app, then use the configured shortcut."
 
-    func captureSelectedText() {
-        switch SelectedTextReader.readSelectedText() {
+    func captureSelectedText(initiatingShortcut: GlobalKeyboardShortcut = .default) {
+        switch SelectedTextReader.readSelectedText(initiatingShortcut: initiatingShortcut) {
         case .success(let text) where !text.isEmpty:
             lastCapturedText = text
             statusMessage = "Captured \(text.count) characters."
