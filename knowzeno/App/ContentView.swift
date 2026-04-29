@@ -12,7 +12,9 @@ struct ContentView: View {
     let settings: AppSettings
 
     var body: some View {
-        VStack(alignment: .leading) {
+        @Bindable var capture = capture
+
+        VStack(alignment: .leading, spacing: 16) {
             Label {
                 Text("knowzeno")
                     .font(.title2)
@@ -29,23 +31,38 @@ struct ContentView: View {
             Text("Global shortcut: \(settings.globalShortcut.displayText)")
                 .foregroundStyle(.secondary)
 
-            Button("Capture Selected Text", systemImage: "text.viewfinder") {
-                capture.captureSelectedText(initiatingShortcut: settings.globalShortcut)
-            }
+            ZStack(alignment: .topLeading) {
+                TextEditor(text: $capture.lastCapturedText)
+                    .font(.body.monospaced())
+                    .lineSpacing(4)
+                    .padding(8)
+                    .accessibilityLabel("Captured text editor")
 
-            ScrollView {
                 if capture.lastCapturedText.isEmpty {
-                    ContentUnavailableView("No captured text", systemImage: "text.viewfinder")
-                } else {
-                    Text(capture.lastCapturedText)
-                        .font(.body.monospaced())
-                        .textSelection(.enabled)
-                        .frame(maxWidth: .infinity, alignment: .leading)
+                    Text("No captured text")
+                        .foregroundStyle(.secondary)
+                        .padding(.horizontal, 13)
+                        .padding(.vertical, 8)
+                        .allowsHitTesting(false)
                 }
             }
             .frame(minWidth: 420, minHeight: 220)
-            .border(.quaternary)
-            .accessibilityLabel("Last captured selected text")
+            .overlay {
+                Rectangle()
+                    .stroke(.quaternary)
+            }
+
+            HStack {
+                Button("Clear Editor", systemImage: "trash") {
+                    capture.clearCapturedText()
+                }
+
+                Spacer()
+
+                Button("Send text to server", systemImage: "paperplane") {
+                    print("Send text to the server")
+                }
+            }
         }
         .padding(24)
     }

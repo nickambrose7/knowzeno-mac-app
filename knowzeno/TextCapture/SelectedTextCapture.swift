@@ -9,7 +9,7 @@ import Observation
 @MainActor
 @Observable
 final class SelectedTextCapture {
-    private(set) var lastCapturedText = ""
+    var lastCapturedText = ""
     private(set) var statusMessage = "Select text in another app, then use the configured shortcut."
 
     func captureSelectedText(initiatingShortcut: GlobalKeyboardShortcut = .default) {
@@ -28,5 +28,10 @@ final class SelectedTextCapture {
             statusMessage = error.localizedDescription
             print("knowzeno failed to capture selected text: \(error.localizedDescription)")
         }
+    }
+
+    func clearCapturedText() {
+        lastCapturedText = ""
+        statusMessage = "Editor cleared."
     }
 }
