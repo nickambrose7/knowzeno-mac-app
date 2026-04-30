@@ -13,6 +13,7 @@ struct ContentView: View {
     private let apiClient = SourceNoteAPIClient()
     @State private var isSendingSourceNote = false
     @State private var sendStatusMessage: String?
+    @State private var sendStatusStyle = SendStatusStyle.neutral
     @FocusState private var textEditorIsFocused: Bool
 
     var body: some View {
@@ -69,8 +70,16 @@ struct ContentView: View {
             }
 
             if let sendStatusMessage {
-                Text(sendStatusMessage)
-                    .foregroundStyle(.secondary)
+                Label {
+                    Text(sendStatusMessage)
+                } icon: {
+                    Image(systemName: sendStatusStyle.systemImage)
+                }
+                .foregroundStyle(sendStatusStyle.foregroundStyle)
+                .padding(10)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(sendStatusStyle.backgroundStyle)
+                .clipShape(.rect(cornerRadius: 8))
             }
         }
         .padding(24)
@@ -90,6 +99,7 @@ struct ContentView: View {
 
     private func sendTextToServer() {
         let text = capture.lastCapturedText
+        sendStatusStyle = .neutral
 
         Task {
             await sendSourceNote(text)
@@ -107,21 +117,64 @@ struct ContentView: View {
     private func sendSourceNote(_ text: String) async {
         isSendingSourceNote = true
         sendStatusMessage = "Sending..."
+        sendStatusStyle = .neutral
 
         do {
             let serverBaseURL = try AppConfiguration.sourceNoteServerBaseURL()
 
-            let message = try await apiClient.createSourceNote(
+            _ = try await apiClient.createSourceNote(
                 text: text,
                 apiKey: settings.apiKey,
                 serverBaseURL: serverBaseURL
             )
-            sendStatusMessage = message
+            capture.lastCapturedText = ""
+            sendStatusMessage = "Source note sent successfully."
+            sendStatusStyle = .success
         } catch {
             sendStatusMessage = error.localizedDescription
+            sendStatusStyle = .error
         }
 
         isSendingSourceNote = false
+    }
+}
+
+private enum SendStatusStyle {
+    case neutral
+    case success
+    case error
+
+    var systemImage: String {
+        switch self {
+        case .neutral:
+            "info.circle"
+        case .success:
+            "checkmark.circle.fill"
+        case .error:
+            "exclamationmark.triangle.fill"
+        }
+    }
+
+    var foregroundStyle: Color {
+        switch self {
+        case .neutral:
+            .secondary
+        case .success:
+            .green
+        case .error:
+            .red
+        }
+    }
+
+    var backgroundStyle: Color {
+        switch self {
+        case .neutral:
+            .clear
+        case .success:
+            .green.opacity(0.12)
+        case .error:
+            .red.opacity(0.12)
+        }
     }
 }
 
