@@ -10,6 +10,9 @@ import SwiftUI
 struct ContentView: View {
     let capture: SelectedTextCapture
     let settings: AppSettings
+    private let apiClient = SourceNoteAPIClient()
+    @State private var isSendingSourceNote = false
+    @State private var sendStatusMessage: String?
 
     var body: some View {
         @Bindable var capture = capture
@@ -59,12 +62,50 @@ struct ContentView: View {
 
                 Spacer()
 
-                Button("Send text to server", systemImage: "paperplane") {
-                    print("Send text to the server")
-                }
+                Button("Send text to server", systemImage: "paperplane", action: sendTextToServer)
+                    .disabled(sendButtonIsDisabled)
+            }
+
+            if let sendStatusMessage {
+                Text(sendStatusMessage)
+                    .foregroundStyle(.secondary)
             }
         }
         .padding(24)
+    }
+
+    private var sendButtonIsDisabled: Bool {
+        isSendingSourceNote
+            || capture.lastCapturedText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            || settings.apiKey.isEmpty
+    }
+
+    private func sendTextToServer() {
+        let text = capture.lastCapturedText
+
+        Task {
+            await sendSourceNote(text)
+        }
+    }
+
+    private func sendSourceNote(_ text: String) async {
+        isSendingSourceNote = true
+        sendStatusMessage = "Sending..."
+
+        do {
+            let serverBaseURL = try AppConfiguration.sourceNoteServerBaseURL()
+
+            try await apiClient.createSourceNote(
+                text: text,
+                apiKey: settings.apiKey,
+                serverBaseURL: serverBaseURL
+            )
+            sendStatusMessage = "Source note sent."
+        } catch {
+            sendStatusMessage = error.localizedDescription
+        }
+
+        isSendingSourceNote = false
     }
 }
 
