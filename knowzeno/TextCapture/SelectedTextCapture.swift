@@ -10,6 +10,7 @@ import Observation
 @Observable
 final class SelectedTextCapture {
     var lastCapturedText = ""
+    private(set) var textEditorFocusRequest = 0
     private(set) var statusMessage = "Select text in another app, then use the configured shortcut."
 
     func captureSelectedText(initiatingShortcut: GlobalKeyboardShortcut = .default) {
@@ -33,5 +34,9 @@ final class SelectedTextCapture {
     func clearCapturedText() {
         lastCapturedText = ""
         statusMessage = "Editor cleared."
+    }
+
+    func requestTextEditorFocus() {
+        textEditorFocusRequest += 1
     }
 }

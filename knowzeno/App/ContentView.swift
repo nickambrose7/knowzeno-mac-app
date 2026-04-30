@@ -13,6 +13,7 @@ struct ContentView: View {
     private let apiClient = SourceNoteAPIClient()
     @State private var isSendingSourceNote = false
     @State private var sendStatusMessage: String?
+    @FocusState private var textEditorIsFocused: Bool
 
     var body: some View {
         @Bindable var capture = capture
@@ -39,6 +40,7 @@ struct ContentView: View {
                     .font(.body.monospaced())
                     .lineSpacing(4)
                     .padding(8)
+                    .focused($textEditorIsFocused)
                     .accessibilityLabel("Captured text editor")
 
                 if capture.lastCapturedText.isEmpty {
@@ -72,6 +74,12 @@ struct ContentView: View {
             }
         }
         .padding(24)
+        .task(id: capture.textEditorFocusRequest) {
+            focusTextEditorWhenRequested()
+        }
+        .onChange(of: capture.textEditorFocusRequest) { _, _ in
+            focusTextEditorWhenRequested()
+        }
     }
 
     private var sendButtonIsDisabled: Bool {
@@ -86,6 +94,14 @@ struct ContentView: View {
         Task {
             await sendSourceNote(text)
         }
+    }
+
+    private func focusTextEditorWhenRequested() {
+        guard capture.textEditorFocusRequest > 0 else {
+            return
+        }
+
+        textEditorIsFocused = true
     }
 
     private func sendSourceNote(_ text: String) async {

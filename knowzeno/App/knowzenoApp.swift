@@ -9,6 +9,7 @@ import SwiftUI
 
 @main
 struct knowzenoApp: App {
+    @Environment(\.openWindow) private var openWindow
     @State private var capture = SelectedTextCapture()
     @State private var activeApplicationTracker = ActiveApplicationTracker()
     @State private var settings = AppSettings()
@@ -16,7 +17,7 @@ struct knowzenoApp: App {
     @State private var isRestoringRegisteredShortcut = false
 
     var body: some Scene {
-        WindowGroup {
+        Window("knowzeno", id: AppWindow.main) {
             Group {
                 if settings.hasCompletedOnboarding {
                     ContentView(capture: capture, settings: settings)
@@ -57,7 +58,7 @@ struct knowzenoApp: App {
             Divider()
 
             Button("Show knowzeno") {
-                NSApp.activate(ignoringOtherApps: true)
+                showMainWindow()
             }
 
             Button("Quit knowzeno") {
@@ -72,7 +73,7 @@ struct knowzenoApp: App {
         Task {
             try? await Task.sleep(for: .milliseconds(250))
             capture.captureSelectedText(initiatingShortcut: settings.globalShortcut)
-            NSApp.activate(ignoringOtherApps: true)
+            showMainWindow(focusingTextEditor: true)
         }
     }
 
@@ -96,6 +97,7 @@ struct knowzenoApp: App {
         } else {
             manager = HotKeyManager {
                 capture.captureSelectedText(initiatingShortcut: settings.globalShortcut)
+                showMainWindow(focusingTextEditor: true)
             }
             hotKeyManager = manager
         }
@@ -112,4 +114,17 @@ struct knowzenoApp: App {
             }
         }
     }
+
+    private func showMainWindow(focusingTextEditor: Bool = false) {
+        openWindow(id: AppWindow.main)
+        NSApp.activate(ignoringOtherApps: true)
+
+        if focusingTextEditor {
+            capture.requestTextEditorFocus()
+        }
+    }
+}
+
+private enum AppWindow {
+    static let main = "main"
 }
