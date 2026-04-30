@@ -16,7 +16,7 @@ struct SourceNoteAPIClientTests {
             text: "Captured text"
         )
 
-        #expect(request.url?.absoluteString == "https://api.example.com/api/source-notes")
+        #expect(request.url?.absoluteString == "https://api.example.com/api/source-note/create")
         #expect(request.httpMethod == "POST")
         #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer test-token")
         #expect(request.value(forHTTPHeaderField: "Content-Type") == "application/json")
@@ -34,7 +34,7 @@ struct SourceNoteAPIClientTests {
             text: "Captured text"
         )
 
-        #expect(request.url?.absoluteString == "http://127.0.0.1:5000/api/source-notes")
+        #expect(request.url?.absoluteString == "http://127.0.0.1:5000/api/source-note/create")
     }
 
     @MainActor
@@ -46,5 +46,24 @@ struct SourceNoteAPIClientTests {
                 text: "Captured text"
             )
         }
+    }
+
+    @MainActor
+    @Test func responseMessageDecodesServerMessage() throws {
+        let data = Data(#"{"message":"Source note accepted. Learning item generation has started."}"#.utf8)
+
+        let message = try SourceNoteAPIClient.responseMessage(from: data)
+
+        #expect(message == "Source note accepted. Learning item generation has started.")
+    }
+
+    @MainActor
+    @Test func requestFailedUsesServerMessageAsErrorDescription() throws {
+        let error = SourceNoteAPIClient.APIError.requestFailed(
+            message: "Invalid API token.",
+            statusCode: 401
+        )
+
+        #expect(error.localizedDescription == "Invalid API token.")
     }
 }

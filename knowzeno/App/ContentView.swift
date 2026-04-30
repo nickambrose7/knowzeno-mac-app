@@ -95,12 +95,12 @@ struct ContentView: View {
         do {
             let serverBaseURL = try AppConfiguration.sourceNoteServerBaseURL()
 
-            try await apiClient.createSourceNote(
+            let message = try await apiClient.createSourceNote(
                 text: text,
                 apiKey: settings.apiKey,
                 serverBaseURL: serverBaseURL
             )
-            sendStatusMessage = "Source note sent."
+            sendStatusMessage = message
         } catch {
             sendStatusMessage = error.localizedDescription
         }
