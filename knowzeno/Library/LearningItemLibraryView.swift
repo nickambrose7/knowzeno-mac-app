@@ -107,15 +107,8 @@ struct LearningItemLibraryView: View {
     private func learningItemRow(_ item: RecentLearningItemPair) -> some View {
         let isExpanded = expandedItemIDs.contains(item.id)
 
-        return VStack(alignment: .leading, spacing: 12) {
-            HStack(alignment: .firstTextBaseline) {
-                Text("Learning Item")
-                    .font(.headline)
-
-                Text(item.learningItemCreatedAt)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-
+        return VStack(alignment: .leading, spacing: 14) {
+            HStack {
                 Spacer()
 
                 Button(isExpanded ? "Show Less" : "Show More") {
@@ -130,30 +123,71 @@ struct LearningItemLibraryView: View {
                 .disabled(deletingItemIDs.contains(item.id))
             }
 
-            textSection(
-                title: "Summary",
+            pairedContentBlock(
+                title: "Learning Item",
+                systemImage: "sparkles",
+                date: LibraryDateText.dateOnly(from: item.learningItemCreatedAt),
+                tint: .blue,
+                contentTitle: "Summary",
                 text: item.learningItemSummary,
                 isExpanded: isExpanded
             )
 
-            Divider()
-
-            HStack(alignment: .firstTextBaseline) {
-                Text("Source Note")
-                    .font(.headline)
-
-                Text(item.sourceNoteCreatedAt)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-
-            textSection(
-                title: "Text",
+            pairedContentBlock(
+                title: "Source Note",
+                systemImage: "note.text",
+                date: LibraryDateText.dateOnly(from: item.sourceNoteCreatedAt),
+                tint: .green,
+                contentTitle: "Text",
                 text: item.sourceNoteText,
                 isExpanded: isExpanded
             )
         }
-        .padding(.vertical, 8)
+        .padding(12)
+        .background(Color(nsColor: .controlBackgroundColor))
+        .clipShape(.rect(cornerRadius: 10))
+        .overlay(
+            RoundedRectangle(cornerRadius: 10)
+                .stroke(Color.secondary.opacity(0.18), lineWidth: 1)
+        )
+        .padding(.vertical, 6)
+    }
+
+    private func pairedContentBlock(
+        title: String,
+        systemImage: String,
+        date: String,
+        tint: Color,
+        contentTitle: String,
+        text: String,
+        isExpanded: Bool
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                Label(title, systemImage: systemImage)
+                    .font(.headline)
+                    .foregroundStyle(tint)
+
+                Text(date)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+
+                Spacer()
+            }
+
+            textSection(
+                title: contentTitle,
+                text: text,
+                isExpanded: isExpanded
+            )
+        }
+        .padding(12)
+        .background(tint.opacity(0.08))
+        .clipShape(.rect(cornerRadius: 8))
+        .overlay(
+            RoundedRectangle(cornerRadius: 8)
+                .stroke(tint.opacity(0.22), lineWidth: 1)
+        )
     }
 
     private func textSection(title: String, text: String, isExpanded: Bool) -> some View {
