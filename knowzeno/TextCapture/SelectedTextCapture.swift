@@ -16,7 +16,7 @@ final class SelectedTextCapture {
     func captureSelectedText(initiatingShortcut: GlobalKeyboardShortcut = .default) {
         switch SelectedTextReader.readSelectedText(initiatingShortcut: initiatingShortcut) {
         case .success(let text) where !text.isEmpty:
-            lastCapturedText = text
+            appendCapturedText(text)
             statusMessage = "Captured \(text.count) characters."
             print("knowzeno captured selected text:")
             print(text)
@@ -34,6 +34,14 @@ final class SelectedTextCapture {
     func clearCapturedText() {
         lastCapturedText = ""
         statusMessage = "Editor cleared."
+    }
+
+    func appendCapturedText(_ text: String) {
+        if lastCapturedText.isEmpty {
+            lastCapturedText = text
+        } else {
+            lastCapturedText += "\n\n\(text)"
+        }
     }
 
     func requestTextEditorFocus() {

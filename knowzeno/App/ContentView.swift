@@ -147,7 +147,6 @@ private struct CaptureView: View {
                 apiKey: settings.apiKey,
                 serverBaseURL: serverBaseURL
             )
-            capture.lastCapturedText = ""
             sendStatusMessage = "Source note sent successfully."
             sendStatusStyle = .success
         } catch {

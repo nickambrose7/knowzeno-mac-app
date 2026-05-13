@@ -8,7 +8,9 @@
 # App Interface
 The main app interface has two tabs:
 
-1. Capture: display captured text and send it to the backend.
+1. Capture: display captured text and send it to the backend. Repeated captures
+   append to the editor with a blank line separator, and only the clear button
+   empties the editor.
 2. Library: show recent learning items with their source notes, preview long
    text by default, expand rows on demand, choose a 20/50/100 item limit, and
    delete accidental learning items.
