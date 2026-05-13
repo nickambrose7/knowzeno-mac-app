@@ -1,0 +1,106 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+usage() {
+  cat <<'EOF'
+Usage: scripts/run-mac-app [--no-kill] [--no-install] [--configuration Debug]
+
+Builds knowzeno from the command line, installs it to ~/Applications by default,
+refreshes Spotlight metadata, and launches the app.
+
+Options:
+  --no-kill              Do not quit a running knowzeno process before install.
+  --no-install           Launch the built app from DerivedData instead of copying
+                         it to ~/Applications.
+  --configuration VALUE  Xcode build configuration. Default: Debug.
+  -h, --help             Show this help.
+EOF
+}
+
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+project_path="$repo_root/knowzeno.xcodeproj"
+scheme="knowzeno"
+configuration="Debug"
+destination="platform=macOS"
+install_app="$HOME/Applications/knowzeno.app"
+should_kill=1
+should_install=1
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --no-kill)
+      should_kill=0
+      shift
+      ;;
+    --no-install)
+      should_install=0
+      shift
+      ;;
+    --configuration)
+      if [[ $# -lt 2 ]]; then
+        echo "--configuration requires a value." >&2
+        exit 2
+      fi
+      configuration="$2"
+      shift 2
+      ;;
+    -h|--help)
+      usage
+      exit 0
+      ;;
+    *)
+      echo "Unknown option: $1" >&2
+      usage >&2
+      exit 2
+      ;;
+  esac
+done
+
+build_setting() {
+  local key="$1"
+
+  xcodebuild \
+    -project "$project_path" \
+    -scheme "$scheme" \
+    -configuration "$configuration" \
+    -destination "$destination" \
+    -showBuildSettings |
+    awk -F' = ' -v key="$key" '$1 ~ "^[[:space:]]*" key "$" { print $2; exit }'
+}
+
+echo "Building $scheme ($configuration)..."
+xcodebuild \
+  -project "$project_path" \
+  -scheme "$scheme" \
+  -configuration "$configuration" \
+  -destination "$destination" \
+  build
+
+built_products_dir="$(build_setting BUILT_PRODUCTS_DIR)"
+full_product_name="$(build_setting FULL_PRODUCT_NAME)"
+built_app="$built_products_dir/$full_product_name"
+
+if [[ ! -d "$built_app" ]]; then
+  echo "Built app not found: $built_app" >&2
+  exit 1
+fi
+
+if [[ "$should_kill" -eq 1 ]]; then
+  killall "$scheme" 2>/dev/null || true
+fi
+
+if [[ "$should_install" -eq 1 ]]; then
+  mkdir -p "$HOME/Applications"
+  echo "Installing $built_app -> $install_app"
+  ditto "$built_app" "$install_app"
+
+  if command -v mdimport >/dev/null 2>&1; then
+    mdimport "$install_app" >/dev/null 2>&1 || true
+  fi
+
+  echo "Launching $install_app"
+  open "$install_app"
+else
+  echo "Launching $built_app"
+  open "$built_app"
+fi

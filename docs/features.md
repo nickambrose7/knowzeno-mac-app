@@ -6,4 +6,9 @@
     
     
 # App Interface
-The main app interface will be very simple. It simply needs to display the text that the user indicate 
+The main app interface has two tabs:
+
+1. Capture: display captured text and send it to the backend.
+2. Library: show recent learning items with their source notes, preview long
+   text by default, expand rows on demand, choose a 20/50/100 item limit, and
+   delete accidental learning items.

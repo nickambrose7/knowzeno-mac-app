@@ -38,6 +38,34 @@ struct SourceNoteAPIClientTests {
     }
 
     @MainActor
+    @Test func makeLearningItemsRequestBuildsFlaskListRequest() throws {
+        let request = try SourceNoteAPIClient.makeLearningItemsRequest(
+            baseURLString: "https://api.example.com",
+            apiKey: "test-token",
+            limit: .fifty
+        )
+
+        #expect(request.url?.absoluteString == "https://api.example.com/api/source-note/learning-items?limit=50")
+        #expect(request.httpMethod == "GET")
+        #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer test-token")
+    }
+
+    @MainActor
+    @Test func makeDeleteLearningItemRequestBuildsFlaskDeleteRequest() throws {
+        let learningItemID = try #require(UUID(uuidString: "0196b7f0-6c2f-7000-8000-000000000001"))
+
+        let request = try SourceNoteAPIClient.makeDeleteLearningItemRequest(
+            baseURLString: "https://api.example.com",
+            apiKey: "test-token",
+            id: learningItemID
+        )
+
+        #expect(request.url?.absoluteString == "https://api.example.com/api/source-note/learning-items/0196B7F0-6C2F-7000-8000-000000000001")
+        #expect(request.httpMethod == "DELETE")
+        #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer test-token")
+    }
+
+    @MainActor
     @Test func makeRequestRejectsInvalidBaseURL() {
         #expect(throws: SourceNoteAPIClient.APIError.invalidBaseURL) {
             try SourceNoteAPIClient.makeRequest(
@@ -55,6 +83,49 @@ struct SourceNoteAPIClientTests {
         let message = try SourceNoteAPIClient.responseMessage(from: data)
 
         #expect(message == "Source note accepted. Learning item generation has started.")
+    }
+
+    @MainActor
+    @Test func responseMessageDecodesServerErrorMessage() throws {
+        let data = Data(#"{"error":{"message":"Learning item not found.","code":"NotFoundError"}}"#.utf8)
+
+        let message = try SourceNoteAPIClient.responseMessage(from: data)
+
+        #expect(message == "Learning item not found.")
+    }
+
+    @MainActor
+    @Test func learningItemsResponseDecodesRepeatedSourceNotes() throws {
+        let data = Data(
+            """
+            {
+              "items": [
+                {
+                  "learning_item_id": "0196b7f0-6c2f-7000-8000-000000000001",
+                  "learning_item_summary": "First summary.",
+                  "learning_item_created_at": "2026-05-03T09:00:00+00:00",
+                  "source_note_id": "0196b7f0-6c2f-7000-8000-000000000010",
+                  "source_note_text": "Shared source note.",
+                  "source_note_created_at": "2026-05-01T09:00:00+00:00"
+                },
+                {
+                  "learning_item_id": "0196b7f0-6c2f-7000-8000-000000000002",
+                  "learning_item_summary": "Second summary.",
+                  "learning_item_created_at": "2026-05-02T09:00:00+00:00",
+                  "source_note_id": "0196b7f0-6c2f-7000-8000-000000000010",
+                  "source_note_text": "Shared source note.",
+                  "source_note_created_at": "2026-05-01T09:00:00+00:00"
+                }
+              ]
+            }
+            """.utf8
+        )
+
+        let response = try SourceNoteAPIClient.learningItemsResponse(from: data)
+
+        #expect(response.items.count == 2)
+        #expect(response.items[0].learningItemSummary == "First summary.")
+        #expect(response.items[1].sourceNoteID == response.items[0].sourceNoteID)
     }
 
     @MainActor

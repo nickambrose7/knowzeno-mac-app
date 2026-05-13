@@ -10,6 +10,26 @@ import SwiftUI
 struct ContentView: View {
     let capture: SelectedTextCapture
     let settings: AppSettings
+
+    var body: some View {
+        TabView {
+            CaptureView(capture: capture, settings: settings)
+                .tabItem {
+                    Label("Capture", systemImage: "text.viewfinder")
+                }
+
+            LearningItemLibraryView(settings: settings)
+                .tabItem {
+                    Label("Library", systemImage: "books.vertical")
+                }
+        }
+        .frame(minWidth: 520, minHeight: 520)
+    }
+}
+
+private struct CaptureView: View {
+    let capture: SelectedTextCapture
+    let settings: AppSettings
     private let apiClient = SourceNoteAPIClient()
     @State private var isSendingSourceNote = false
     @State private var sendStatusMessage: String?
