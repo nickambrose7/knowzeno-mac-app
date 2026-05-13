@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import AppKit
 
 struct ContentView: View {
     let capture: SelectedTextCapture
@@ -34,7 +35,7 @@ private struct CaptureView: View {
     @State private var isSendingSourceNote = false
     @State private var sendStatusMessage: String?
     @State private var sendStatusStyle = SendStatusStyle.neutral
-    @FocusState private var textEditorIsFocused: Bool
+    @FocusState private var focusedControl: CaptureFocusedControl?
 
     var body: some View {
         @Bindable var capture = capture
@@ -61,7 +62,7 @@ private struct CaptureView: View {
                     .font(.body.monospaced())
                     .lineSpacing(4)
                     .padding(8)
-                    .focused($textEditorIsFocused)
+                    .focused($focusedControl, equals: .textEditor)
                     .accessibilityLabel("Captured text editor")
 
                 if capture.lastCapturedText.isEmpty {
@@ -85,8 +86,13 @@ private struct CaptureView: View {
 
                 Spacer()
 
-                Button("Send text to server", systemImage: "paperplane", action: sendTextToServer)
-                    .disabled(sendButtonIsDisabled)
+                FocusableSendTextButton(
+                    focusRequest: capture.sendButtonFocusRequest,
+                    isDefaultActionEnabled: focusedControl == .sendButton,
+                    isDisabled: sendButtonIsDisabled,
+                    action: sendTextToServer
+                )
+                .fixedSize()
             }
 
             if let sendStatusMessage {
@@ -108,6 +114,12 @@ private struct CaptureView: View {
         }
         .onChange(of: capture.textEditorFocusRequest) { _, _ in
             focusTextEditorWhenRequested()
+        }
+        .task(id: capture.sendButtonFocusRequest) {
+            focusSendButtonWhenRequested()
+        }
+        .onChange(of: capture.sendButtonFocusRequest) { _, _ in
+            focusSendButtonWhenRequested()
         }
     }
 
@@ -131,7 +143,15 @@ private struct CaptureView: View {
             return
         }
 
-        textEditorIsFocused = true
+        focusedControl = .textEditor
+    }
+
+    private func focusSendButtonWhenRequested() {
+        guard capture.sendButtonFocusRequest > 0, sendButtonIsDisabled == false else {
+            return
+        }
+
+        focusedControl = .sendButton
     }
 
     private func sendSourceNote(_ text: String) async {
@@ -149,12 +169,75 @@ private struct CaptureView: View {
             )
             sendStatusMessage = "Source note sent successfully."
             sendStatusStyle = .success
+            focusedControl = .textEditor
         } catch {
             sendStatusMessage = error.localizedDescription
             sendStatusStyle = .error
         }
 
         isSendingSourceNote = false
+    }
+}
+
+private enum CaptureFocusedControl: Hashable {
+    case textEditor
+    case sendButton
+}
+
+private struct FocusableSendTextButton: NSViewRepresentable {
+    let focusRequest: Int
+    let isDefaultActionEnabled: Bool
+    let isDisabled: Bool
+    let action: () -> Void
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(action: action)
+    }
+
+    func makeNSView(context: Context) -> NSButton {
+        let button = NSButton(
+            title: "Send text to server",
+            target: context.coordinator,
+            action: #selector(Coordinator.sendTextToServer)
+        )
+        button.bezelStyle = .rounded
+        button.image = NSImage(systemSymbolName: "paperplane", accessibilityDescription: nil)
+        button.imagePosition = .imageLeading
+        button.setButtonType(.momentaryPushIn)
+        button.refusesFirstResponder = false
+        return button
+    }
+
+    func updateNSView(_ button: NSButton, context: Context) {
+        context.coordinator.action = action
+        button.isEnabled = isDisabled == false
+        button.keyEquivalent = isDefaultActionEnabled ? "\r" : ""
+
+        guard focusRequest > 0,
+              focusRequest != context.coordinator.lastAppliedFocusRequest,
+              isDisabled == false else {
+            return
+        }
+
+        context.coordinator.lastAppliedFocusRequest = focusRequest
+
+        Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(50))
+            button.window?.makeFirstResponder(button)
+        }
+    }
+
+    final class Coordinator: NSObject {
+        var action: () -> Void
+        var lastAppliedFocusRequest = 0
+
+        init(action: @escaping () -> Void) {
+            self.action = action
+        }
+
+        @objc func sendTextToServer() {
+            action()
+        }
     }
 }
 

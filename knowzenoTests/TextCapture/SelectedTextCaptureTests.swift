@@ -14,6 +14,7 @@ struct SelectedTextCaptureTests {
 
         #expect(capture.lastCapturedText.isEmpty)
         #expect(capture.textEditorFocusRequest == 0)
+        #expect(capture.sendButtonFocusRequest == 0)
         #expect(capture.statusMessage == "Select text in another app, then use the configured shortcut.")
     }
 
@@ -27,6 +28,18 @@ struct SelectedTextCaptureTests {
 
         #expect(firstRequest == 1)
         #expect(capture.textEditorFocusRequest == 2)
+    }
+
+    @MainActor
+    @Test func sendButtonFocusRequestChangesEveryTimeFocusIsRequested() {
+        let capture = SelectedTextCapture()
+
+        capture.requestSendButtonFocus()
+        let firstRequest = capture.sendButtonFocusRequest
+        capture.requestSendButtonFocus()
+
+        #expect(firstRequest == 1)
+        #expect(capture.sendButtonFocusRequest == 2)
     }
 
     @MainActor

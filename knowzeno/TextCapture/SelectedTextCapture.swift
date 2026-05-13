@@ -11,6 +11,7 @@ import Observation
 final class SelectedTextCapture {
     var lastCapturedText = ""
     private(set) var textEditorFocusRequest = 0
+    private(set) var sendButtonFocusRequest = 0
     private(set) var statusMessage = "Select text in another app, then use the configured shortcut."
 
     func captureSelectedText(initiatingShortcut: GlobalKeyboardShortcut = .default) {
@@ -46,5 +47,9 @@ final class SelectedTextCapture {
 
     func requestTextEditorFocus() {
         textEditorFocusRequest += 1
+    }
+
+    func requestSendButtonFocus() {
+        sendButtonFocusRequest += 1
     }
 }

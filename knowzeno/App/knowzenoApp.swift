@@ -73,7 +73,7 @@ struct knowzenoApp: App {
         Task {
             try? await Task.sleep(for: .milliseconds(250))
             capture.captureSelectedText(initiatingShortcut: settings.globalShortcut)
-            showMainWindow(focusingTextEditor: true)
+            showMainWindow(focusingSendButton: true)
         }
     }
 
@@ -97,7 +97,7 @@ struct knowzenoApp: App {
         } else {
             manager = HotKeyManager {
                 capture.captureSelectedText(initiatingShortcut: settings.globalShortcut)
-                showMainWindow(focusingTextEditor: true)
+                showMainWindow(focusingSendButton: true)
             }
             hotKeyManager = manager
         }
@@ -115,12 +115,15 @@ struct knowzenoApp: App {
         }
     }
 
-    private func showMainWindow(focusingTextEditor: Bool = false) {
+    private func showMainWindow(focusingSendButton: Bool = false) {
         openWindow(id: AppWindow.main)
         NSApp.activate(ignoringOtherApps: true)
 
-        if focusingTextEditor {
-            capture.requestTextEditorFocus()
+        if focusingSendButton {
+            Task { @MainActor in
+                try? await Task.sleep(for: .milliseconds(100))
+                capture.requestSendButtonFocus()
+            }
         }
     }
 }
