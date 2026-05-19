@@ -166,6 +166,7 @@ private struct CaptureView: View {
                 apiKey: settings.apiKey,
                 serverBaseURL: serverBaseURL
             )
+            capture.clearCapturedText()
             sendStatusMessage = "Source note sent successfully."
             sendStatusStyle = .success
             focusedControl = .textEditor
