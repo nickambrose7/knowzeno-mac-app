@@ -88,7 +88,6 @@ private struct CaptureView: View {
 
                 FocusableSendTextButton(
                     focusRequest: capture.sendButtonFocusRequest,
-                    isDefaultActionEnabled: focusedControl == .sendButton,
                     isDisabled: sendButtonIsDisabled,
                     action: sendTextToServer
                 )
@@ -186,7 +185,6 @@ private enum CaptureFocusedControl: Hashable {
 
 private struct FocusableSendTextButton: NSViewRepresentable {
     let focusRequest: Int
-    let isDefaultActionEnabled: Bool
     let isDisabled: Bool
     let action: () -> Void
 
@@ -195,7 +193,7 @@ private struct FocusableSendTextButton: NSViewRepresentable {
     }
 
     func makeNSView(context: Context) -> NSButton {
-        let button = NSButton(
+        let button = ReturnActivatingButton(
             title: "Send text to server",
             target: context.coordinator,
             action: #selector(Coordinator.sendTextToServer)
@@ -211,7 +209,7 @@ private struct FocusableSendTextButton: NSViewRepresentable {
     func updateNSView(_ button: NSButton, context: Context) {
         context.coordinator.action = action
         button.isEnabled = isDisabled == false
-        button.keyEquivalent = isDefaultActionEnabled ? "\r" : ""
+        button.keyEquivalent = ""
 
         guard focusRequest > 0,
               focusRequest != context.coordinator.lastAppliedFocusRequest,
@@ -237,6 +235,22 @@ private struct FocusableSendTextButton: NSViewRepresentable {
 
         @objc func sendTextToServer() {
             action()
+        }
+    }
+}
+
+private final class ReturnActivatingButton: NSButton {
+    override func keyDown(with event: NSEvent) {
+        guard event.modifierFlags.intersection(.deviceIndependentFlagsMask).isEmpty else {
+            super.keyDown(with: event)
+            return
+        }
+
+        switch event.charactersIgnoringModifiers {
+        case "\r", "\u{3}":
+            performClick(nil)
+        default:
+            super.keyDown(with: event)
         }
     }
 }
