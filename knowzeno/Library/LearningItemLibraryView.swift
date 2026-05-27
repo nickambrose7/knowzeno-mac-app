@@ -106,29 +106,17 @@ struct LearningItemLibraryView: View {
 
     private func learningItemRow(_ item: RecentLearningItemPair) -> some View {
         let isExpanded = expandedItemIDs.contains(item.id)
+        let date = LibraryDateText.dateOnly(from: item.learningItemCreatedAt)
 
         return VStack(alignment: .leading, spacing: 14) {
-            HStack {
-                Spacer()
-
-                Button(isExpanded ? "Show Less" : "Show More") {
-                    toggleExpanded(item)
-                }
-                .buttonStyle(.borderless)
-
-                Button("Delete", systemImage: "trash", role: .destructive) {
-                    itemPendingDeletion = item
-                }
-                .buttonStyle(.borderless)
-                .disabled(deletingItemIDs.contains(item.id))
-            }
+            Text(date)
+                .font(.caption)
+                .foregroundStyle(.secondary)
 
             pairedContentBlock(
                 title: "Learning Item",
                 systemImage: "sparkles",
-                date: LibraryDateText.dateOnly(from: item.learningItemCreatedAt),
                 tint: .blue,
-                contentTitle: "Summary",
                 text: item.learningItemSummary,
                 isExpanded: isExpanded
             )
@@ -136,12 +124,29 @@ struct LearningItemLibraryView: View {
             pairedContentBlock(
                 title: "Source Note",
                 systemImage: "note.text",
-                date: LibraryDateText.dateOnly(from: item.sourceNoteCreatedAt),
                 tint: .green,
-                contentTitle: "Text",
                 text: item.sourceNoteText,
                 isExpanded: isExpanded
             )
+
+            HStack {
+                Button(isExpanded ? "Show Less" : "Show More") {
+                    toggleExpanded(item)
+                }
+                .buttonStyle(CardActionButtonStyle())
+
+                Spacer()
+
+                Button(role: .destructive) {
+                    itemPendingDeletion = item
+                } label: {
+                    Image(systemName: "trash")
+                }
+                .buttonStyle(CardActionButtonStyle(tint: .red))
+                .disabled(deletingItemIDs.contains(item.id))
+                .accessibilityLabel("Delete")
+                .help("Delete")
+            }
         }
         .padding(12)
         .background(Color(nsColor: .controlBackgroundColor))
@@ -156,9 +161,7 @@ struct LearningItemLibraryView: View {
     private func pairedContentBlock(
         title: String,
         systemImage: String,
-        date: String,
         tint: Color,
-        contentTitle: String,
         text: String,
         isExpanded: Bool
     ) -> some View {
@@ -168,15 +171,10 @@ struct LearningItemLibraryView: View {
                     .font(.headline)
                     .foregroundStyle(tint)
 
-                Text(date)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-
                 Spacer()
             }
 
             textSection(
-                title: contentTitle,
                 text: text,
                 isExpanded: isExpanded
             )
@@ -190,16 +188,10 @@ struct LearningItemLibraryView: View {
         )
     }
 
-    private func textSection(title: String, text: String, isExpanded: Bool) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(title)
-                .font(.caption)
-                .foregroundStyle(.secondary)
-
-            Text(isExpanded ? text : TextPreview.preview(for: text))
-                .textSelection(.enabled)
-                .frame(maxWidth: .infinity, alignment: .leading)
-        }
+    private func textSection(text: String, isExpanded: Bool) -> some View {
+        Text(isExpanded ? text : TextPreview.preview(for: text))
+            .textSelection(.enabled)
+            .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private func toggleExpanded(_ item: RecentLearningItemPair) {
@@ -257,4 +249,68 @@ struct LearningItemLibraryView: View {
 
 #Preview {
     LearningItemLibraryView(settings: AppSettings())
+}
+
+private struct CardActionButtonStyle: ButtonStyle {
+    var tint: Color = .accentColor
+
+    func makeBody(configuration: Configuration) -> some View {
+        CardActionButton(configuration: configuration, tint: tint)
+    }
+}
+
+private struct CardActionButton: View {
+    let configuration: ButtonStyle.Configuration
+    let tint: Color
+
+    @Environment(\.isEnabled) private var isEnabled
+    @State private var isHovered = false
+
+    var body: some View {
+        configuration.label
+            .font(.callout)
+            .bold()
+            .foregroundStyle(foregroundStyle)
+            .padding(.horizontal, 12)
+            .frame(minWidth: 36, minHeight: 30)
+            .background(backgroundShape)
+            .overlay(borderShape)
+            .clipShape(.rect(cornerRadius: 7))
+            .contentShape(.rect)
+            .opacity(isEnabled ? 1 : 0.45)
+            .scaleEffect(configuration.isPressed ? 0.97 : 1)
+            .animation(.easeOut(duration: 0.12), value: isHovered)
+            .animation(.easeOut(duration: 0.08), value: configuration.isPressed)
+            .onHover { isHovered = $0 }
+    }
+
+    private var foregroundStyle: Color {
+        guard isEnabled else { return .secondary }
+        return isHovered ? tint : .secondary
+    }
+
+    private var backgroundShape: some View {
+        RoundedRectangle(cornerRadius: 7)
+            .fill(backgroundColor)
+    }
+
+    private var borderShape: some View {
+        RoundedRectangle(cornerRadius: 7)
+            .stroke(borderColor, lineWidth: 1)
+    }
+
+    private var backgroundColor: Color {
+        guard isEnabled else { return .clear }
+
+        if configuration.isPressed {
+            return tint.opacity(0.22)
+        }
+
+        return isHovered ? tint.opacity(0.14) : Color.secondary.opacity(0.08)
+    }
+
+    private var borderColor: Color {
+        guard isEnabled else { return Color.secondary.opacity(0.12) }
+        return isHovered ? tint.opacity(0.65) : Color.secondary.opacity(0.22)
+    }
 }

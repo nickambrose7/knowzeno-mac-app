@@ -82,6 +82,8 @@ If SwiftData is configured to use CloudKit:
 ## PR instructions
 
 - If installed, make sure SwiftLint returns no warnings or errors before committing.
+- After implementing any Mac app feature or UI change, run `scripts/run-mac-app`
+  so the updated app is installed and launched for manual verification.
 
 
 ## Xcode MCP
@@ -95,4 +97,3 @@ If the Xcode MCP is configured, prefer its tools over generic alternatives when 
 - `XcodeListNavigatorIssues` — check for issues visible in the Xcode Issue Navigator
 - `ExecuteSnippet` — test a code snippet in the context of a source file
 - `XcodeRead`, `XcodeWrite`, `XcodeUpdate` — prefer these over generic file tools when working with Xcode project files
-
