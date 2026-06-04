@@ -45,9 +45,8 @@ private struct CaptureView: View {
                     .font(.title2)
                     .bold()
             } icon: {
-                Image(systemName: "text.viewfinder")
-                    .imageScale(.large)
-                    .foregroundStyle(.tint)
+                KnowzenoLogoMark()
+                    .frame(width: 40, height: 40)
             }
 
             Text(capture.statusMessage)

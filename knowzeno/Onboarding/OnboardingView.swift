@@ -30,9 +30,8 @@ struct OnboardingView: View {
                     .font(.title2)
                     .bold()
             } icon: {
-                Image(systemName: "text.viewfinder")
-                    .imageScale(.large)
-                    .foregroundStyle(.tint)
+                KnowzenoLogoMark()
+                    .frame(width: 44, height: 44)
             }
 
             Text("Add your API key and choose the global shortcut used to send notes to knowzeno.")
