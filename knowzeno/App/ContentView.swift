@@ -55,6 +55,9 @@ private struct CaptureView: View {
             Text("Global shortcut: \(settings.globalShortcut.displayText)")
                 .foregroundStyle(.secondary)
 
+            Text("The shortcut captures only your selected text into this editor. Nothing is sent to the backend until you press Send text to server.")
+                .foregroundStyle(.secondary)
+
             ZStack(alignment: .topLeading) {
                 TextEditor(text: $capture.lastCapturedText)
                     .font(.body.monospaced())

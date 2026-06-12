@@ -13,16 +13,21 @@ struct knowzenoApp: App {
     @State private var capture = SelectedTextCapture()
     @State private var activeApplicationTracker = ActiveApplicationTracker()
     @State private var settings = AppSettings()
+    @State private var onboardingPresentation = OnboardingPresentation()
     @State private var hotKeyManager: HotKeyManager?
     @State private var isRestoringRegisteredShortcut = false
 
     var body: some Scene {
         Window("knowzeno", id: AppWindow.main) {
             Group {
-                if settings.hasCompletedOnboarding {
-                    ContentView(capture: capture, settings: settings)
+                if onboardingPresentation.shouldShowOnboarding(
+                    hasCompletedOnboarding: settings.hasCompletedOnboarding
+                ) {
+                    OnboardingView(settings: settings) {
+                        onboardingPresentation.completeSetupGuide()
+                    }
                 } else {
-                    OnboardingView(settings: settings)
+                    ContentView(capture: capture, settings: settings)
                 }
             }
             .task {
@@ -42,6 +47,11 @@ struct knowzenoApp: App {
                 }
 
                 registerHotKey(newShortcut)
+            }
+        }
+        .commands {
+            CommandGroup(replacing: .help) {
+                Button("Show Setup Guide", action: showSetupGuide)
             }
         }
 
@@ -125,6 +135,11 @@ struct knowzenoApp: App {
                 capture.requestSendButtonFocus()
             }
         }
+    }
+
+    private func showSetupGuide() {
+        onboardingPresentation.showSetupGuide()
+        showMainWindow()
     }
 }
 
