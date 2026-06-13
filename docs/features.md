@@ -11,8 +11,6 @@
   global capture shortcut, explains Accessibility permission, and shows the
   basic workflow: select text, capture it, review/edit, submit, then review or
   delete generated notes in Library.
-- Users can revisit the same flow from Help > Show Setup Guide without clearing
-  their saved API key or shortcut.
     
     
 # App Interface

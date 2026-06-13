@@ -12,7 +12,6 @@ struct OnboardingView: View {
     @State private var apiKeyDraft: String
     @State private var shortcutDraft: GlobalKeyboardShortcut
     @State private var currentStep = OnboardingStep.privacy
-    private let onCompletion: () -> Void
 
     private var canContinueFromCurrentStep: Bool {
         switch currentStep {
@@ -27,9 +26,8 @@ struct OnboardingView: View {
         }
     }
 
-    init(settings: AppSettings, onCompletion: @escaping () -> Void = {}) {
+    init(settings: AppSettings) {
         self.settings = settings
-        self.onCompletion = onCompletion
         _apiKeyDraft = State(initialValue: settings.apiKey)
         _shortcutDraft = State(initialValue: settings.globalShortcut)
     }
@@ -105,10 +103,6 @@ struct OnboardingView: View {
     private func saveOnboarding() {
         settings.saveAPIKey(apiKeyDraft)
         settings.saveShortcut(shortcutDraft)
-
-        if settings.hasCompletedOnboarding {
-            onCompletion()
-        }
     }
 }
 
@@ -120,10 +114,12 @@ enum OnboardingContent {
             detail: "knowzeno works only with text you selected in another app. It does not read your screen, monitor your typing, or scan documents on its own."
         ),
         OnboardingStatement(
+            systemImage: "keyboard",
             title: "You trigger every capture",
             detail: "A capture starts only when you press your shortcut or choose Send Selected Text to knowzeno from the menu bar."
         ),
         OnboardingStatement(
+            systemImage: "square.and.pencil",
             title: "Capture is not submit",
             detail: "The shortcut copies the selected text into knowzeno's editor so you can review or edit it first. Nothing is sent to the backend during capture."
         ),
@@ -136,6 +132,7 @@ enum OnboardingContent {
 
     static let shortcutStatements = [
         OnboardingStatement(
+            systemImage: "command",
             title: "Choose a shortcut you control",
             detail: "Use this shortcut after selecting text in Safari, Obsidian, Notes, a PDF, or any other app that supports text selection."
         ),
@@ -156,14 +153,17 @@ enum OnboardingContent {
 
     static let workflowStatements = [
         OnboardingStatement(
+            systemImage: "text.cursor",
             title: "1. Select text",
             detail: "Highlight only the text you want to turn into a learning note."
         ),
         OnboardingStatement(
+            systemImage: "keyboard",
             title: "2. Capture it",
             detail: "Press your shortcut or use the menu bar item. The text appears in the Capture tab editor."
         ),
         OnboardingStatement(
+            systemImage: "checkmark.square",
             title: "3. Review before sending",
             detail: "Edit or clear the captured text. It stays local until you press Send text to server."
         ),
@@ -177,15 +177,9 @@ enum OnboardingContent {
 
 struct OnboardingStatement: Identifiable {
     let id = UUID()
-    let systemImage: String?
+    let systemImage: String
     let title: String
     let detail: String
-
-    init(systemImage: String? = nil, title: String, detail: String) {
-        self.systemImage = systemImage
-        self.title = title
-        self.detail = detail
-    }
 }
 
 private enum OnboardingStep: CaseIterable {
@@ -301,11 +295,9 @@ private struct OnboardingStatementRow: View {
 
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
-            if let systemImage = statement.systemImage {
-                Image(systemName: systemImage)
-                    .frame(width: 24)
-                    .foregroundStyle(Color.accentColor)
-            }
+            Image(systemName: statement.systemImage)
+                .frame(width: 24)
+                .foregroundStyle(Color.accentColor)
 
             VStack(alignment: .leading, spacing: 4) {
                 Text(statement.title)
