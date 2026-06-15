@@ -101,8 +101,7 @@ struct OnboardingView: View {
     }
 
     private func saveOnboarding() {
-        settings.saveAPIKey(apiKeyDraft)
-        settings.saveShortcut(shortcutDraft)
+        settings.completeOnboarding(apiKey: apiKeyDraft, shortcut: shortcutDraft)
     }
 }
 

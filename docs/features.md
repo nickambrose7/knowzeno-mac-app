@@ -11,6 +11,8 @@
   global capture shortcut, explains Accessibility permission, and shows the
   basic workflow: select text, capture it, review/edit, submit, then review or
   delete generated notes in Library.
+- The Help menu includes Show Onboarding so users can review the onboarding
+  flow again without clearing their API key or shortcut.
     
     
 # App Interface
@@ -25,3 +27,9 @@ The main app interface has two tabs:
 2. Library: show recent learning items with their source notes, preview long
    text by default, expand rows on demand, choose a 20/50/100 item limit, and
    delete accidental learning items.
+
+# Direct Download Accessibility
+- If selected text capture works in development but not in the direct-download
+  app, grant Accessibility permission to the installed `/Applications/Knowzeno.app`
+  copy. macOS ties Accessibility permission to the specific signed app copy, so
+  old development, DerivedData, or `~/Applications` entries may not apply.

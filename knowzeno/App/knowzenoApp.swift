@@ -48,6 +48,14 @@ struct knowzenoApp: App {
         Settings {
             SettingsView(settings: settings)
         }
+        .commands {
+            CommandGroup(after: .help) {
+                Button("Show Onboarding") {
+                    settings.showOnboardingAgain()
+                    showMainWindow()
+                }
+            }
+        }
 
         MenuBarExtra("knowzeno", systemImage: "text.viewfinder") {
             Button("Send Selected Text to knowzeno") {

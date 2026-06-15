@@ -11,6 +11,7 @@ import Observation
 final class AppSettings {
     private enum DefaultsKey {
         static let globalShortcut = "globalShortcut"
+        static let hasFinishedOnboarding = "hasFinishedOnboarding"
     }
 
     private let apiKeyStore: APIKeyStoring
@@ -18,17 +19,19 @@ final class AppSettings {
 
     private(set) var apiKey = ""
     private(set) var globalShortcut: GlobalKeyboardShortcut
+    private(set) var hasFinishedOnboarding: Bool
     var hotKeyStatusMessage = ""
     var settingsErrorMessage: String?
 
     var hasCompletedOnboarding: Bool {
-        apiKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false && globalShortcut.isValid
+        hasFinishedOnboarding && apiKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false && globalShortcut.isValid
     }
 
     init(apiKeyStore: APIKeyStoring = KeychainAPIKeyStore(), userDefaults: UserDefaults = .standard) {
         self.apiKeyStore = apiKeyStore
         self.userDefaults = userDefaults
         globalShortcut = Self.loadShortcut(from: userDefaults)
+        hasFinishedOnboarding = userDefaults.bool(forKey: DefaultsKey.hasFinishedOnboarding)
         reloadAPIKey()
     }
 
@@ -57,6 +60,26 @@ final class AppSettings {
     func restoreRegisteredShortcut(_ shortcut: GlobalKeyboardShortcut) {
         globalShortcut = shortcut
         persistShortcut(shortcut)
+    }
+
+    func completeOnboarding(apiKey: String, shortcut: GlobalKeyboardShortcut) {
+        saveAPIKey(apiKey)
+        guard settingsErrorMessage == nil else {
+            return
+        }
+
+        saveShortcut(shortcut)
+        guard settingsErrorMessage == nil else {
+            return
+        }
+
+        hasFinishedOnboarding = true
+        userDefaults.set(true, forKey: DefaultsKey.hasFinishedOnboarding)
+    }
+
+    func showOnboardingAgain() {
+        hasFinishedOnboarding = false
+        userDefaults.set(false, forKey: DefaultsKey.hasFinishedOnboarding)
     }
 
     private func reloadAPIKey() {
