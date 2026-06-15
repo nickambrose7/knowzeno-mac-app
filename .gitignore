@@ -1,0 +1,10 @@
+build/
+DerivedData/
+*.xcresult
+*.xcarchive
+*.dSYM/
+*.swp
+.DS_Store
+.agents/
+*.xcuserstate
+**/xcuserdata/
