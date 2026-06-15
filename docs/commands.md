@@ -77,8 +77,16 @@ To publish a notarized DMG to GitHub Releases:
 scripts/publish-github-release v1.0.0 build/direct-download/Knowzeno-1.0-1.dmg
 ```
 
-The helper uploads the asset as `Knowzeno.dmg`, which keeps the website's
+The helper validates the stapled notarization ticket and Gatekeeper assessment,
+then uploads the asset as `Knowzeno.dmg`, which keeps the website's
 `/download/mac` redirect stable.
+
+To replace `Knowzeno.dmg` on an existing release after rebuilding a notarized
+artifact:
+
+```sh
+scripts/publish-github-release v1.0.0 build/direct-download/Knowzeno-1.0-1.dmg --clobber
+```
 
 
 ## Troubleshooting

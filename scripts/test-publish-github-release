@@ -1,0 +1,131 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+script="$repo_root/scripts/publish-github-release"
+
+tmp_root="$(mktemp -d)"
+cleanup() {
+  rm -rf "$tmp_root"
+}
+trap cleanup EXIT
+
+fake_bin="$tmp_root/bin"
+mkdir -p "$fake_bin"
+
+write_stub() {
+  local path="$1"
+  local body="$2"
+
+  printf '%s\n' "$body" > "$path"
+  chmod +x "$path"
+}
+
+write_stub "$fake_bin/gh" '#!/usr/bin/env bash
+set -euo pipefail
+printf "%s\n" "$*" >> "${GH_LOG:?}"
+if [[ "$1" != "release" ]]; then
+  echo "unexpected gh command: $*" >&2
+  exit 1
+fi
+asset="$4"
+if [[ "$2" == "upload" ]]; then
+  asset="$4"
+elif [[ "$2" == "create" ]]; then
+  asset="$4"
+else
+  echo "unexpected gh release command: $*" >&2
+  exit 1
+fi
+if [[ "$(basename "$asset")" != "Knowzeno.dmg" ]]; then
+  echo "unexpected release asset: $asset" >&2
+  exit 1
+fi
+'
+
+write_stub "$fake_bin/xcrun" '#!/usr/bin/env bash
+set -euo pipefail
+printf "%s\n" "$*" >> "${XCRUN_LOG:?}"
+if [[ "${XCRUN_EXIT:-0}" != "0" ]]; then
+  exit "$XCRUN_EXIT"
+fi
+if [[ "$1" != "stapler" || "$2" != "validate" || ! -f "$3" ]]; then
+  echo "unexpected xcrun command: $*" >&2
+  exit 1
+fi
+'
+
+write_stub "$fake_bin/spctl" '#!/usr/bin/env bash
+set -euo pipefail
+printf "%s\n" "$*" >> "${SPCTL_LOG:?}"
+if [[ "${SPCTL_EXIT:-0}" != "0" ]]; then
+  exit "$SPCTL_EXIT"
+fi
+case "$*" in
+  *" -t install "*) ;;
+  *) echo "unexpected spctl command: $*" >&2; exit 1 ;;
+esac
+'
+
+run_case() {
+  local name="$1"
+  shift
+  local command_env=(env)
+  while [[ $# -gt 0 && "$1" == *=* ]]; do
+    command_env+=("$1")
+    shift
+  done
+
+  local case_dir="$tmp_root/$name"
+  mkdir -p "$case_dir"
+  local dmg="$case_dir/Input.dmg"
+  printf 'fake dmg\n' > "$dmg"
+  "${command_env[@]}" \
+    GH_LOG="$case_dir/gh.log" \
+    XCRUN_LOG="$case_dir/xcrun.log" \
+    SPCTL_LOG="$case_dir/spctl.log" \
+    PATH="$fake_bin:$PATH" \
+    GITHUB_RELEASE_REPOSITORY="example/knowzeno-mac-app" \
+    "$script" v1.2.3 "$dmg" --title "Knowzeno 1.2.3" --notes "Release notes." "$@"
+}
+
+assert_file_contains() {
+  local file="$1"
+  local expected="$2"
+
+  if ! grep -Fq -- "$expected" "$file"; then
+    echo "Expected $file to contain: $expected" >&2
+    exit 1
+  fi
+}
+
+run_case publishes_after_notarization_check
+assert_file_contains "$tmp_root/publishes_after_notarization_check/xcrun.log" "stapler validate"
+assert_file_contains "$tmp_root/publishes_after_notarization_check/spctl.log" "-t install"
+assert_file_contains "$tmp_root/publishes_after_notarization_check/gh.log" "release create v1.2.3"
+
+run_case replaces_existing_asset_after_notarization_check --clobber
+assert_file_contains "$tmp_root/replaces_existing_asset_after_notarization_check/xcrun.log" "stapler validate"
+assert_file_contains "$tmp_root/replaces_existing_asset_after_notarization_check/spctl.log" "-t install"
+assert_file_contains "$tmp_root/replaces_existing_asset_after_notarization_check/gh.log" "release upload v1.2.3"
+assert_file_contains "$tmp_root/replaces_existing_asset_after_notarization_check/gh.log" "--clobber"
+
+if run_case blocks_when_stapler_fails XCRUN_EXIT=65; then
+  echo "Expected stapler failure to block publish." >&2
+  exit 1
+fi
+if [[ -f "$tmp_root/blocks_when_stapler_fails/gh.log" ]]; then
+  echo "Did not expect gh to run after stapler failure." >&2
+  exit 1
+fi
+
+if run_case blocks_when_spctl_fails SPCTL_EXIT=3; then
+  echo "Expected spctl failure to block publish." >&2
+  exit 1
+fi
+if [[ -f "$tmp_root/blocks_when_spctl_fails/gh.log" ]]; then
+  echo "Did not expect gh to run after spctl failure." >&2
+  exit 1
+fi
+
+echo "publish-github-release tests passed"

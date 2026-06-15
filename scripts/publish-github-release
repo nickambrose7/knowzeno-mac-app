@@ -3,7 +3,7 @@ set -euo pipefail
 
 usage() {
   cat <<'EOF'
-Usage: scripts/publish-github-release <tag> <dmg-path> [--title TITLE] [--notes NOTES]
+Usage: scripts/publish-github-release <tag> <dmg-path> [--title TITLE] [--notes NOTES] [--clobber]
 
 Publishes a notarized DMG to GitHub Releases using the stable public asset name
 Knowzeno.dmg. The website download URL points at:
@@ -18,6 +18,8 @@ Prerequisites:
   - GitHub CLI installed.
   - `gh auth login` completed for an account that can publish releases.
   - The release repository is public before sharing the download URL.
+  - The DMG has been notarized and stapled by scripts/package-direct-download.
+  - Use --clobber only when replacing Knowzeno.dmg on an existing release.
 EOF
 }
 
@@ -38,6 +40,7 @@ dmg_path="$2"
 shift 2
 title="Knowzeno ${tag#v}"
 notes="Direct download release."
+clobber=0
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -48,6 +51,10 @@ while [[ $# -gt 0 ]]; do
     --notes)
       notes="${2:?Missing notes after --notes}"
       shift 2
+      ;;
+    --clobber)
+      clobber=1
+      shift
       ;;
     *)
       echo "Unknown option: $1" >&2
@@ -67,6 +74,22 @@ if [[ ! -f "$dmg_path" ]]; then
   exit 1
 fi
 
+if ! command -v xcrun >/dev/null 2>&1; then
+  echo "xcrun not found. Publish notarized macOS releases from a Mac with Xcode installed." >&2
+  exit 1
+fi
+
+if ! command -v spctl >/dev/null 2>&1; then
+  echo "spctl not found. Publish notarized macOS releases from macOS." >&2
+  exit 1
+fi
+
+echo "Validating stapled notarization ticket..."
+xcrun stapler validate "$dmg_path"
+
+echo "Verifying Gatekeeper assessment..."
+spctl -a -vvv -t install "$dmg_path"
+
 publish_root="$(mktemp -d)"
 cleanup() {
   rm -rf "$publish_root"
@@ -76,11 +99,18 @@ trap cleanup EXIT
 stable_dmg_path="$publish_root/Knowzeno.dmg"
 cp "$dmg_path" "$stable_dmg_path"
 
-echo "Publishing $stable_dmg_path to $repo as $tag..."
-gh release create "$tag" "$stable_dmg_path" \
-  --repo "$repo" \
-  --title "$title" \
-  --notes "$notes"
+if [[ "$clobber" -eq 1 ]]; then
+  echo "Replacing Knowzeno.dmg on $repo release $tag..."
+  gh release upload "$tag" "$stable_dmg_path" \
+    --repo "$repo" \
+    --clobber
+else
+  echo "Publishing $stable_dmg_path to $repo as $tag..."
+  gh release create "$tag" "$stable_dmg_path" \
+    --repo "$repo" \
+    --title "$title" \
+    --notes "$notes"
+fi
 
 echo "Download URL:"
 echo "https://github.com/$repo/releases/latest/download/Knowzeno.dmg"

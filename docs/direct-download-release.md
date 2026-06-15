@@ -80,10 +80,23 @@ scripts/publish-github-release v1.0.0 build/direct-download/Knowzeno-1.0-1.dmg \
   --notes "Direct download release."
 ```
 
+The publish helper validates the stapled notarization ticket and Gatekeeper
+assessment before upload. If either check fails, do not upload that DMG; rebuild
+with `scripts/package-direct-download` without `--skip-notarization`.
+
+If the release already exists and only the `Knowzeno.dmg` asset needs to be
+replaced, use the guarded replacement mode:
+
+```sh
+scripts/publish-github-release v1.0.0 build/direct-download/Knowzeno-1.0-1.dmg --clobber
+```
+
 Or run the equivalent `gh` commands manually:
 
 ```sh
 cp build/direct-download/Knowzeno-1.0-1.dmg /tmp/Knowzeno.dmg
+xcrun stapler validate /tmp/Knowzeno.dmg
+spctl -a -vvv -t install /tmp/Knowzeno.dmg
 gh release create v1.0.0 /tmp/Knowzeno.dmg \
   --repo nickambrose7/knowzeno-mac-app \
   --title "Knowzeno 1.0.0" \
@@ -94,6 +107,8 @@ If the release already exists and only the asset needs to be replaced:
 
 ```sh
 cp build/direct-download/Knowzeno-1.0-1.dmg /tmp/Knowzeno.dmg
+xcrun stapler validate /tmp/Knowzeno.dmg
+spctl -a -vvv -t install /tmp/Knowzeno.dmg
 gh release upload v1.0.0 /tmp/Knowzeno.dmg \
   --repo nickambrose7/knowzeno-mac-app \
   --clobber
