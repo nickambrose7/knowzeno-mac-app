@@ -1,1 +1,1 @@
-KNOWZENO_SERVER_BASE_URL = https:/$()/api.knowzeno.com
+KNOWZENO_SERVER_BASE_URL = https:/$()/knowzeno.com

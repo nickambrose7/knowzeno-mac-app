@@ -1,0 +1,86 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+usage() {
+  cat <<'EOF'
+Usage: scripts/publish-github-release <tag> <dmg-path> [--title TITLE] [--notes NOTES]
+
+Publishes a notarized DMG to GitHub Releases using the stable public asset name
+Knowzeno.dmg. The website download URL points at:
+
+  https://github.com/nickambrose7/knowzeno-mac-app/releases/latest/download/Knowzeno.dmg
+
+Environment:
+  GITHUB_RELEASE_REPOSITORY  GitHub repository in OWNER/REPO form.
+                             Default: nickambrose7/knowzeno-mac-app.
+
+Prerequisites:
+  - GitHub CLI installed.
+  - `gh auth login` completed for an account that can publish releases.
+  - The release repository is public before sharing the download URL.
+EOF
+}
+
+repo="${GITHUB_RELEASE_REPOSITORY:-nickambrose7/knowzeno-mac-app}"
+
+if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
+  usage
+  exit 0
+fi
+
+if [[ $# -lt 2 ]]; then
+  usage >&2
+  exit 2
+fi
+
+tag="$1"
+dmg_path="$2"
+shift 2
+title="Knowzeno ${tag#v}"
+notes="Direct download release."
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --title)
+      title="${2:?Missing title after --title}"
+      shift 2
+      ;;
+    --notes)
+      notes="${2:?Missing notes after --notes}"
+      shift 2
+      ;;
+    *)
+      echo "Unknown option: $1" >&2
+      usage >&2
+      exit 2
+      ;;
+  esac
+done
+
+if ! command -v gh >/dev/null 2>&1; then
+  echo "GitHub CLI not found. Install it, then run gh auth login." >&2
+  exit 1
+fi
+
+if [[ ! -f "$dmg_path" ]]; then
+  echo "DMG not found: $dmg_path" >&2
+  exit 1
+fi
+
+publish_root="$(mktemp -d)"
+cleanup() {
+  rm -rf "$publish_root"
+}
+trap cleanup EXIT
+
+stable_dmg_path="$publish_root/Knowzeno.dmg"
+cp "$dmg_path" "$stable_dmg_path"
+
+echo "Publishing $stable_dmg_path to $repo as $tag..."
+gh release create "$tag" "$stable_dmg_path" \
+  --repo "$repo" \
+  --title "$title" \
+  --notes "$notes"
+
+echo "Download URL:"
+echo "https://github.com/$repo/releases/latest/download/Knowzeno.dmg"

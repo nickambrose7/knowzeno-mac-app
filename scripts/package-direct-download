@@ -1,0 +1,175 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+usage() {
+  cat <<'EOF'
+Usage: scripts/package-direct-download [--skip-notarization]
+
+Archives, exports, packages, notarizes, staples, and verifies a Developer ID
+disk image for direct website distribution.
+
+Prerequisites:
+  - Developer ID Application certificate installed in Keychain.
+  - Xcode automatic signing can use team BH9Q5V7U24.
+  - A notarytool keychain profile exists. Default: notarytool-knowzeno.
+
+Environment:
+  NOTARYTOOL_PROFILE  Keychain profile name for xcrun notarytool.
+                      Default: notarytool-knowzeno.
+  DEVELOPER_ID_APPLICATION_IDENTITY
+                      Developer ID Application signing identity. If omitted,
+                      the script finds one for team BH9Q5V7U24.
+
+Options:
+  --skip-notarization Build the DMG but do not submit/staple/verify.
+  -h, --help          Show this help.
+EOF
+}
+
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+project_path="$repo_root/knowzeno.xcodeproj"
+export_options="$repo_root/Config/DeveloperIDExportOptions.plist"
+scheme="knowzeno"
+configuration="Release"
+destination="generic/platform=macOS"
+team_id="BH9Q5V7U24"
+notarytool_profile="${NOTARYTOOL_PROFILE:-notarytool-knowzeno}"
+skip_notarization=0
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --skip-notarization)
+      skip_notarization=1
+      shift
+      ;;
+    -h|--help)
+      usage
+      exit 0
+      ;;
+    *)
+      echo "Unknown option: $1" >&2
+      usage >&2
+      exit 2
+      ;;
+  esac
+done
+
+build_setting() {
+  local key="$1"
+
+  xcodebuild \
+    -project "$project_path" \
+    -scheme "$scheme" \
+    -configuration "$configuration" \
+    -destination "$destination" \
+    -showBuildSettings |
+    awk -F' = ' -v key="$key" '$1 ~ "^[[:space:]]*" key "$" { print $2; exit }'
+}
+
+developer_id_application_identity() {
+  if [[ -n "${DEVELOPER_ID_APPLICATION_IDENTITY:-}" ]]; then
+    echo "$DEVELOPER_ID_APPLICATION_IDENTITY"
+    return
+  fi
+
+  security find-identity -v -p codesigning |
+    awk -v team_id="$team_id" '
+      $0 ~ "Developer ID Application:" && $0 ~ "\\(" team_id "\\)" {
+        quote_start = index($0, "\"")
+        if (quote_start > 0) {
+          identity = substr($0, quote_start + 1)
+          sub(/"$/, "", identity)
+          print identity
+        }
+        exit
+      }
+    '
+}
+
+version="$(build_setting MARKETING_VERSION)"
+build_number="$(build_setting CURRENT_PROJECT_VERSION)"
+server_base_url="$(build_setting KNOWZENO_SERVER_BASE_URL)"
+if [[ "$server_base_url" != "https://knowzeno.com" ]]; then
+  echo "Unexpected Release server URL: $server_base_url" >&2
+  echo "Direct-download releases must use https://knowzeno.com." >&2
+  exit 1
+fi
+signing_identity="$(developer_id_application_identity)"
+if [[ -z "$signing_identity" ]]; then
+  echo "Developer ID Application identity for team $team_id not found." >&2
+  exit 1
+fi
+release_name="Knowzeno-$version-$build_number"
+release_root="$repo_root/build/direct-download"
+archive_path="$release_root/$release_name.xcarchive"
+export_path="$release_root/export"
+dmg_path="$release_root/$release_name.dmg"
+mkdir -p "$release_root" "$export_path"
+dmg_root="$(mktemp -d "$release_root/dmg-root.XXXXXX")"
+
+cleanup() {
+  rm -rf "$dmg_root"
+}
+trap cleanup EXIT
+
+echo "Testing $scheme..."
+echo "Release server URL: $server_base_url"
+xcodebuild test \
+  -project "$project_path" \
+  -scheme "$scheme" \
+  -destination "platform=macOS"
+
+echo "Archiving $scheme $version ($build_number)..."
+xcodebuild archive \
+  -project "$project_path" \
+  -scheme "$scheme" \
+  -configuration "$configuration" \
+  -destination "$destination" \
+  -archivePath "$archive_path"
+
+echo "Exporting Developer ID app..."
+xcodebuild -exportArchive \
+  -archivePath "$archive_path" \
+  -exportPath "$export_path" \
+  -exportOptionsPlist "$export_options"
+
+exported_app="$export_path/knowzeno.app"
+if [[ ! -d "$exported_app" ]]; then
+  echo "Exported app not found: $exported_app" >&2
+  exit 1
+fi
+
+echo "Creating disk image..."
+mkdir -p "$dmg_root"
+ditto "$exported_app" "$dmg_root/Knowzeno.app"
+ln -s /Applications "$dmg_root/Applications"
+rm -f "$dmg_path"
+hdiutil create \
+  -volname "Knowzeno" \
+  -srcfolder "$dmg_root" \
+  -fs HFS+ \
+  -format UDZO \
+  "$dmg_path"
+
+echo "Signing disk image with $signing_identity..."
+codesign --force --sign "$signing_identity" --timestamp "$dmg_path"
+codesign -dv --verbose=4 "$dmg_path"
+
+if [[ "$skip_notarization" -eq 1 ]]; then
+  echo "Skipping notarization. Built $dmg_path"
+  exit 0
+fi
+
+echo "Submitting for notarization with keychain profile $notarytool_profile..."
+xcrun notarytool submit "$dmg_path" \
+  --keychain-profile "$notarytool_profile" \
+  --wait
+
+echo "Stapling notarization ticket..."
+xcrun stapler staple "$dmg_path"
+
+echo "Verifying Gatekeeper assessment..."
+spctl -a -vvv -t install "$dmg_path"
+
+echo "Direct-download artifact ready:"
+echo "$dmg_path"

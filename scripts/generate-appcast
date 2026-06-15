@@ -1,0 +1,46 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+usage() {
+  cat <<'EOF'
+Usage: scripts/generate-appcast <updates-directory>
+
+Runs Sparkle's generate_appcast over a directory containing notarized DMG
+releases. Upload the resulting appcast.xml next to the DMGs.
+
+Environment:
+  SPARKLE_BIN_DIR  Directory containing generate_appcast. If omitted, this
+                   script looks for generate_appcast on PATH.
+EOF
+}
+
+if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
+  usage
+  exit 0
+fi
+
+if [[ $# -ne 1 ]]; then
+  usage >&2
+  exit 2
+fi
+
+updates_directory="$1"
+
+if [[ ! -d "$updates_directory" ]]; then
+  echo "Updates directory not found: $updates_directory" >&2
+  exit 1
+fi
+
+if [[ -n "${SPARKLE_BIN_DIR:-}" ]]; then
+  generate_appcast="$SPARKLE_BIN_DIR/generate_appcast"
+else
+  generate_appcast="$(command -v generate_appcast || true)"
+fi
+
+if [[ -z "$generate_appcast" || ! -x "$generate_appcast" ]]; then
+  echo "Sparkle generate_appcast not found." >&2
+  echo "Set SPARKLE_BIN_DIR or add generate_appcast to PATH." >&2
+  exit 1
+fi
+
+"$generate_appcast" "$updates_directory"

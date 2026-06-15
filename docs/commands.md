@@ -49,6 +49,37 @@ In Xcode:
 2. Select the `knowzeno` scheme.
 3. Choose Product > Test, or press Command-U.
 
+## Package for Direct Download
+
+From the `knowzeno` repository root:
+
+```sh
+scripts/package-direct-download
+```
+
+This creates a Developer ID signed, notarized, stapled DMG for website
+distribution. See [direct-download-release.md](direct-download-release.md) for
+the full checklist and required Apple credentials.
+
+The Release build uses `https://knowzeno.com` as the backend base URL. Do not
+ship a direct-download build pointed at `api.knowzeno.com` unless that subdomain
+has been deliberately configured.
+
+To test packaging before Apple notarization is configured:
+
+```sh
+scripts/package-direct-download --skip-notarization
+```
+
+To publish a notarized DMG to GitHub Releases:
+
+```sh
+scripts/publish-github-release v1.0.0 build/direct-download/Knowzeno-1.0-1.dmg
+```
+
+The helper uploads the asset as `Knowzeno.dmg`, which keeps the website's
+`/download/mac` redirect stable.
+
 
 ## Troubleshooting
 - If the tests are failing, go to Product > Clean Build Folder.
