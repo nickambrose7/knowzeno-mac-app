@@ -68,6 +68,43 @@ build_setting() {
     awk -F' = ' -v key="$key" '$1 ~ "^[[:space:]]*" key "$" { print $2; exit }'
 }
 
+wait_for_app_exit() {
+  local timeout_seconds=10
+  local waited_seconds=0
+
+  while pgrep -x "$scheme" >/dev/null 2>&1; do
+    if [[ "$waited_seconds" -ge "$timeout_seconds" ]]; then
+      echo "Timed out waiting for running $scheme processes to exit." >&2
+      pgrep -ax "$scheme" >&2 || true
+      exit 1
+    fi
+
+    sleep 1
+    waited_seconds=$((waited_seconds + 1))
+  done
+}
+
+wait_for_launched_app() {
+  local expected_binary="$1"
+  local timeout_seconds=10
+  local waited_seconds=0
+
+  while [[ "$waited_seconds" -lt "$timeout_seconds" ]]; do
+    if pgrep -fx "$expected_binary" >/dev/null 2>&1; then
+      echo "Running $expected_binary"
+      return
+    fi
+
+    sleep 1
+    waited_seconds=$((waited_seconds + 1))
+  done
+
+  echo "Launched app was not the expected build: $expected_binary" >&2
+  echo "Running $scheme processes:" >&2
+  pgrep -ax "$scheme" >&2 || true
+  exit 1
+}
+
 echo "Building $scheme ($configuration)..."
 xcodebuild \
   -project "$project_path" \
@@ -87,9 +124,11 @@ fi
 
 if [[ "$should_kill" -eq 1 ]]; then
   killall "$scheme" 2>/dev/null || true
+  wait_for_app_exit
 fi
 
 if [[ "$should_install" -eq 1 ]]; then
+  expected_binary="$install_app/Contents/MacOS/$scheme"
   mkdir -p "$HOME/Applications"
   echo "Installing $built_app -> $install_app"
   ditto "$built_app" "$install_app"
@@ -99,8 +138,11 @@ if [[ "$should_install" -eq 1 ]]; then
   fi
 
   echo "Launching $install_app"
-  open "$install_app"
+  open -n "$install_app"
+  wait_for_launched_app "$expected_binary"
 else
+  expected_binary="$built_app/Contents/MacOS/$scheme"
   echo "Launching $built_app"
-  open "$built_app"
+  open -n "$built_app"
+  wait_for_launched_app "$expected_binary"
 fi

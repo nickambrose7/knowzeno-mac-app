@@ -22,11 +22,13 @@ The main app interface has two tabs:
    repeats that only selected text is captured and that nothing is sent until
    the user presses Send text to server. After the global
    shortcut captures text, the send button is focused so Return can submit
-   without using the mouse. Repeated captures append to the editor with a blank
-   line separator, and only the clear button empties the editor.
+   without using the mouse. Pressing Tab from the editor also moves focus to the
+   send button instead of inserting tab text; Return submits from the send
+   button. Repeated captures append to the editor with a blank line separator,
+   and only the clear button empties the editor.
 2. Library: show recent learning items with their source notes, preview long
    text by default, expand rows on demand, choose a 20/50/100 item limit, and
-   delete accidental learning items.
+   edit, archive, unarchive, or delete accidental learning items.
 
 # Direct Download Accessibility
 - If selected text capture works in development but not in the direct-download

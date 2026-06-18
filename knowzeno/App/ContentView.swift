@@ -64,6 +64,9 @@ private struct CaptureView: View {
                     .lineSpacing(4)
                     .padding(8)
                     .focused($focusedControl, equals: .textEditor)
+                    .onKeyPress(.tab) {
+                        handleTextEditorTab()
+                    }
                     .accessibilityLabel("Captured text editor")
 
                 if capture.lastCapturedText.isEmpty {
@@ -98,6 +101,10 @@ private struct CaptureView: View {
                 .buttonStyle(CaptureActionButtonStyle())
                 .disabled(sendButtonIsDisabled)
                 .focused($focusedControl, equals: .sendButton)
+                .onKeyPress(.return) {
+                    sendTextToServer()
+                    return .handled
+                }
                 .fixedSize()
             }
 
@@ -160,6 +167,18 @@ private struct CaptureView: View {
         focusedControl = .sendButton
     }
 
+    private func handleTextEditorTab() -> KeyPress.Result {
+        switch CaptureEditorKeyboardShortcuts.tabAction(
+            sendButtonIsDisabled: sendButtonIsDisabled
+        ) {
+        case .focusSendButton:
+            focusedControl = .sendButton
+            return .handled
+        case .consume:
+            return .handled
+        }
+    }
+
     private func sendSourceNote(_ text: String) async {
         isSendingSourceNote = true
         sendStatusMessage = "Sending..."
@@ -189,6 +208,19 @@ private struct CaptureView: View {
 private enum CaptureFocusedControl: Hashable {
     case textEditor
     case sendButton
+}
+
+enum CaptureEditorTabAction: Equatable {
+    case focusSendButton
+    case consume
+}
+
+struct CaptureEditorKeyboardShortcuts {
+    static func tabAction(
+        sendButtonIsDisabled: Bool
+    ) -> CaptureEditorTabAction {
+        sendButtonIsDisabled ? .consume : .focusSendButton
+    }
 }
 
 private struct CaptureActionButtonStyle: ButtonStyle {
