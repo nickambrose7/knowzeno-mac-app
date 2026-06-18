@@ -96,6 +96,51 @@ struct SourceNoteAPIClient {
         }
     }
 
+    func updateLearningItem(
+        id: UUID,
+        title: String?,
+        summary: String?,
+        apiKey: String,
+        serverBaseURL: String
+    ) async throws -> LearningItemMutationResponse {
+        let request = try Self.makeUpdateLearningItemRequest(
+            baseURLString: serverBaseURL,
+            apiKey: apiKey,
+            id: id,
+            title: title,
+            summary: summary
+        )
+        return try await learningItemMutationResponse(for: request)
+    }
+
+    func archiveLearningItem(
+        id: UUID,
+        apiKey: String,
+        serverBaseURL: String
+    ) async throws -> LearningItemMutationResponse {
+        let request = try Self.makeLifecycleRequest(
+            baseURLString: serverBaseURL,
+            apiKey: apiKey,
+            id: id,
+            action: .archive
+        )
+        return try await learningItemMutationResponse(for: request)
+    }
+
+    func unarchiveLearningItem(
+        id: UUID,
+        apiKey: String,
+        serverBaseURL: String
+    ) async throws -> LearningItemMutationResponse {
+        let request = try Self.makeLifecycleRequest(
+            baseURLString: serverBaseURL,
+            apiKey: apiKey,
+            id: id,
+            action: .unarchive
+        )
+        return try await learningItemMutationResponse(for: request)
+    }
+
     static func makeRequest(baseURLString: String, apiKey: String, text: String) throws -> URLRequest {
         guard let baseURL = URL.validServerBaseURL(from: baseURLString) else {
             throw APIError.invalidBaseURL
@@ -153,6 +198,47 @@ struct SourceNoteAPIClient {
         return request
     }
 
+    static func makeUpdateLearningItemRequest(
+        baseURLString: String,
+        apiKey: String,
+        id: UUID,
+        title: String?,
+        summary: String?
+    ) throws -> URLRequest {
+        guard let baseURL = URL.validServerBaseURL(from: baseURLString) else {
+            throw APIError.invalidBaseURL
+        }
+
+        var request = URLRequest(
+            url: baseURL.appending(path: "api/source-note/learning-items/\(id.uuidString)")
+        )
+        request.httpMethod = "PATCH"
+        request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try JSONEncoder().encode(
+            LearningItemUpdateRequest(title: title, summary: summary)
+        )
+        return request
+    }
+
+    static func makeLifecycleRequest(
+        baseURLString: String,
+        apiKey: String,
+        id: UUID,
+        action: LearningItemLifecycleAction
+    ) throws -> URLRequest {
+        guard let baseURL = URL.validServerBaseURL(from: baseURLString) else {
+            throw APIError.invalidBaseURL
+        }
+
+        var request = URLRequest(
+            url: baseURL.appending(path: "api/source-note/learning-items/\(id.uuidString)/\(action.pathComponent)")
+        )
+        request.httpMethod = "POST"
+        request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
+        return request
+    }
+
     static func responseMessage(from data: Data) throws -> String {
         if let response = try? JSONDecoder().decode(ServerMessageResponse.self, from: data) {
             return response.message
@@ -168,10 +254,30 @@ struct SourceNoteAPIClient {
     static func learningItemsResponse(from data: Data) throws -> RecentLearningItemsResponse {
         try JSONDecoder().decode(RecentLearningItemsResponse.self, from: data)
     }
+
+    private func learningItemMutationResponse(for request: URLRequest) async throws -> LearningItemMutationResponse {
+        let (data, response) = try await session.data(for: request)
+
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw APIError.invalidResponse
+        }
+
+        guard httpResponse.statusCode == 200 else {
+            let message = try Self.responseMessage(from: data)
+            throw APIError.requestFailed(message: message, statusCode: httpResponse.statusCode)
+        }
+
+        return try JSONDecoder().decode(LearningItemMutationResponse.self, from: data)
+    }
 }
 
 private struct SourceNoteCreateRequest: Encodable {
     let text: String
+}
+
+private struct LearningItemUpdateRequest: Encodable {
+    let title: String?
+    let summary: String?
 }
 
 private struct ServerMessageResponse: Decodable {
@@ -200,13 +306,49 @@ enum LearningItemLimit: Int, CaseIterable, Identifiable {
     }
 }
 
+enum LearningItemLifecycleAction {
+    case archive
+    case unarchive
+
+    var pathComponent: String {
+        switch self {
+        case .archive:
+            "archive"
+        case .unarchive:
+            "unarchive"
+        }
+    }
+}
+
+enum LearningItemLifecycleState: String, Decodable, Equatable {
+    case active
+    case archived
+    case learned
+}
+
 struct RecentLearningItemsResponse: Decodable, Equatable {
     let items: [RecentLearningItemPair]
 }
 
+struct LearningItemMutationResponse: Decodable, Equatable {
+    let learningItemID: UUID
+    let learningItemTitle: String
+    let learningItemSummary: String
+    let learningItemLifecycleState: LearningItemLifecycleState
+
+    private enum CodingKeys: String, CodingKey {
+        case learningItemID = "learning_item_id"
+        case learningItemTitle = "learning_item_title"
+        case learningItemSummary = "learning_item_summary"
+        case learningItemLifecycleState = "learning_item_lifecycle_state"
+    }
+}
+
 struct RecentLearningItemPair: Decodable, Equatable, Identifiable {
     let learningItemID: UUID
+    let learningItemTitle: String
     let learningItemSummary: String
+    let learningItemLifecycleState: LearningItemLifecycleState
     let learningItemCreatedAt: String
     let sourceNoteID: UUID
     let sourceNoteText: String
@@ -218,7 +360,9 @@ struct RecentLearningItemPair: Decodable, Equatable, Identifiable {
 
     private enum CodingKeys: String, CodingKey {
         case learningItemID = "learning_item_id"
+        case learningItemTitle = "learning_item_title"
         case learningItemSummary = "learning_item_summary"
+        case learningItemLifecycleState = "learning_item_lifecycle_state"
         case learningItemCreatedAt = "learning_item_created_at"
         case sourceNoteID = "source_note_id"
         case sourceNoteText = "source_note_text"

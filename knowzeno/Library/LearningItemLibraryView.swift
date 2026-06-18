@@ -12,6 +12,10 @@ struct LearningItemLibraryView: View {
     @State private var items: [RecentLearningItemPair] = []
     @State private var expandedItemIDs: Set<UUID> = []
     @State private var deletingItemIDs: Set<UUID> = []
+    @State private var mutatingItemIDs: Set<UUID> = []
+    @State private var editingItemID: UUID?
+    @State private var titleDraft = ""
+    @State private var summaryDraft = ""
     @State private var itemPendingDeletion: RecentLearningItemPair?
     @State private var isLoading = false
     @State private var errorMessage: String?
@@ -106,12 +110,33 @@ struct LearningItemLibraryView: View {
 
     private func learningItemRow(_ item: RecentLearningItemPair) -> some View {
         let isExpanded = expandedItemIDs.contains(item.id)
+        let isEditing = editingItemID == item.id
+        let isMutating = mutatingItemIDs.contains(item.id)
         let date = LibraryDateText.dateOnly(from: item.learningItemCreatedAt)
 
         return VStack(alignment: .leading, spacing: 14) {
-            Text(date)
-                .font(.caption)
-                .foregroundStyle(.secondary)
+            HStack(alignment: .firstTextBaseline) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(item.learningItemTitle)
+                        .font(.headline)
+                        .textSelection(.enabled)
+
+                    Text(date)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+
+                Spacer()
+
+                Text(item.learningItemLifecycleState.label)
+                    .font(.caption)
+                    .bold()
+                    .foregroundStyle(item.learningItemLifecycleState.tint)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(item.learningItemLifecycleState.tint.opacity(0.12))
+                    .clipShape(.rect(cornerRadius: 6))
+            }
 
             pairedContentBlock(
                 title: "Learning Item",
@@ -129,11 +154,36 @@ struct LearningItemLibraryView: View {
                 isExpanded: isExpanded
             )
 
-            HStack {
+            if isEditing {
+                editControls(for: item, isMutating: isMutating)
+            }
+
+            HStack(spacing: 8) {
                 Button(isExpanded ? "Show Less" : "Show More") {
                     toggleExpanded(item)
                 }
                 .buttonStyle(CardActionButtonStyle())
+
+                Button(isEditing ? "Cancel Edit" : "Edit", systemImage: "pencil") {
+                    if isEditing {
+                        cancelEditing()
+                    } else {
+                        startEditing(item)
+                    }
+                }
+                .buttonStyle(CardActionButtonStyle())
+                .disabled(isMutating)
+
+                Button(
+                    item.learningItemLifecycleState == .archived ? "Unarchive" : "Archive",
+                    systemImage: item.learningItemLifecycleState == .archived ? "tray.and.arrow.up" : "archivebox"
+                ) {
+                    Task {
+                        await toggleArchived(item)
+                    }
+                }
+                .buttonStyle(CardActionButtonStyle())
+                .disabled(isMutating)
 
                 Spacer()
 
@@ -143,7 +193,7 @@ struct LearningItemLibraryView: View {
                     Image(systemName: "trash")
                 }
                 .buttonStyle(CardActionButtonStyle(tint: .red))
-                .disabled(deletingItemIDs.contains(item.id))
+                .disabled(deletingItemIDs.contains(item.id) || isMutating)
                 .accessibilityLabel("Delete")
                 .help("Delete")
             }
@@ -156,6 +206,44 @@ struct LearningItemLibraryView: View {
                 .stroke(Color.secondary.opacity(0.18), lineWidth: 1)
         )
         .padding(.vertical, 6)
+    }
+
+    private func editControls(for item: RecentLearningItemPair, isMutating: Bool) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            TextField("Title", text: $titleDraft)
+                .textFieldStyle(.roundedBorder)
+
+            TextEditor(text: $summaryDraft)
+                .frame(minHeight: 120)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 7)
+                        .stroke(Color.secondary.opacity(0.22), lineWidth: 1)
+                )
+                .accessibilityLabel("Learning item summary")
+
+            HStack {
+                Button("Save Changes", systemImage: "checkmark") {
+                    Task {
+                        await saveEdits(item)
+                    }
+                }
+                .buttonStyle(CardActionButtonStyle())
+                .disabled(
+                    isMutating
+                    || titleDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                    || summaryDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                )
+
+                Button("Cancel") {
+                    cancelEditing()
+                }
+                .buttonStyle(CardActionButtonStyle())
+                .disabled(isMutating)
+            }
+        }
+        .padding(12)
+        .background(Color.secondary.opacity(0.07))
+        .clipShape(.rect(cornerRadius: 8))
     }
 
     private func pairedContentBlock(
@@ -202,6 +290,18 @@ struct LearningItemLibraryView: View {
         }
     }
 
+    private func startEditing(_ item: RecentLearningItemPair) {
+        editingItemID = item.id
+        titleDraft = item.learningItemTitle
+        summaryDraft = item.learningItemSummary
+    }
+
+    private func cancelEditing() {
+        editingItemID = nil
+        titleDraft = ""
+        summaryDraft = ""
+    }
+
     private func loadItems() async {
         guard settings.apiKey.isEmpty == false else {
             items = []
@@ -245,72 +345,101 @@ struct LearningItemLibraryView: View {
 
         deletingItemIDs.remove(item.id)
     }
+
+    private func saveEdits(_ item: RecentLearningItemPair) async {
+        mutatingItemIDs.insert(item.id)
+        errorMessage = nil
+
+        do {
+            let serverBaseURL = try AppConfiguration.sourceNoteServerBaseURL()
+            let updatedItem = try await apiClient.updateLearningItem(
+                id: item.id,
+                title: titleDraft,
+                summary: summaryDraft,
+                apiKey: settings.apiKey,
+                serverBaseURL: serverBaseURL
+            )
+            updateItem(item, with: updatedItem)
+            cancelEditing()
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+
+        mutatingItemIDs.remove(item.id)
+    }
+
+    private func toggleArchived(_ item: RecentLearningItemPair) async {
+        mutatingItemIDs.insert(item.id)
+        errorMessage = nil
+
+        do {
+            let serverBaseURL = try AppConfiguration.sourceNoteServerBaseURL()
+            let updatedItem = if item.learningItemLifecycleState == .archived {
+                try await apiClient.unarchiveLearningItem(
+                    id: item.id,
+                    apiKey: settings.apiKey,
+                    serverBaseURL: serverBaseURL
+                )
+            } else {
+                try await apiClient.archiveLearningItem(
+                    id: item.id,
+                    apiKey: settings.apiKey,
+                    serverBaseURL: serverBaseURL
+                )
+            }
+            updateItem(item, with: updatedItem)
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+
+        mutatingItemIDs.remove(item.id)
+    }
+
+    private func updateItem(
+        _ item: RecentLearningItemPair,
+        with updatedItem: LearningItemMutationResponse
+    ) {
+        guard let index = items.firstIndex(where: { $0.id == item.id }) else {
+            return
+        }
+
+        items[index] = RecentLearningItemPair(
+            learningItemID: updatedItem.learningItemID,
+            learningItemTitle: updatedItem.learningItemTitle,
+            learningItemSummary: updatedItem.learningItemSummary,
+            learningItemLifecycleState: updatedItem.learningItemLifecycleState,
+            learningItemCreatedAt: item.learningItemCreatedAt,
+            sourceNoteID: item.sourceNoteID,
+            sourceNoteText: item.sourceNoteText,
+            sourceNoteCreatedAt: item.sourceNoteCreatedAt
+        )
+    }
 }
 
 #Preview {
     LearningItemLibraryView(settings: AppSettings())
 }
 
-private struct CardActionButtonStyle: ButtonStyle {
-    var tint: Color = .accentColor
-
-    func makeBody(configuration: Configuration) -> some View {
-        CardActionButton(configuration: configuration, tint: tint)
-    }
-}
-
-private struct CardActionButton: View {
-    let configuration: ButtonStyle.Configuration
-    let tint: Color
-
-    @Environment(\.isEnabled) private var isEnabled
-    @State private var isHovered = false
-
-    var body: some View {
-        configuration.label
-            .font(.callout)
-            .bold()
-            .foregroundStyle(foregroundStyle)
-            .padding(.horizontal, 12)
-            .frame(minWidth: 36, minHeight: 30)
-            .background(backgroundShape)
-            .overlay(borderShape)
-            .clipShape(.rect(cornerRadius: 7))
-            .contentShape(.rect)
-            .opacity(isEnabled ? 1 : 0.45)
-            .scaleEffect(configuration.isPressed ? 0.97 : 1)
-            .animation(.easeOut(duration: 0.12), value: isHovered)
-            .animation(.easeOut(duration: 0.08), value: configuration.isPressed)
-            .onHover { isHovered = $0 }
-    }
-
-    private var foregroundStyle: Color {
-        guard isEnabled else { return .secondary }
-        return isHovered ? tint : .secondary
-    }
-
-    private var backgroundShape: some View {
-        RoundedRectangle(cornerRadius: 7)
-            .fill(backgroundColor)
-    }
-
-    private var borderShape: some View {
-        RoundedRectangle(cornerRadius: 7)
-            .stroke(borderColor, lineWidth: 1)
-    }
-
-    private var backgroundColor: Color {
-        guard isEnabled else { return .clear }
-
-        if configuration.isPressed {
-            return tint.opacity(0.22)
+private extension LearningItemLifecycleState {
+    var label: String {
+        switch self {
+        case .active:
+            "Active"
+        case .archived:
+            "Archived"
+        case .learned:
+            "Learned"
         }
-
-        return isHovered ? tint.opacity(0.14) : Color.secondary.opacity(0.08)
     }
 
-    private var borderColor: Color {
-        guard isEnabled else { return Color.secondary.opacity(0.12) }
-        return isHovered ? tint.opacity(0.65) : Color.secondary.opacity(0.22)
+    var tint: Color {
+        switch self {
+        case .active:
+            .blue
+        case .archived:
+            .orange
+        case .learned:
+            .green
+        }
     }
 }
