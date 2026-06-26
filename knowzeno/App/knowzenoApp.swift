@@ -14,6 +14,7 @@ struct knowzenoApp: App {
     @State private var activeApplicationTracker = ActiveApplicationTracker()
     @State private var settings = AppSettings()
     @State private var hotKeyManager: HotKeyManager?
+    @State private var softwareUpdateController = SoftwareUpdateController()
     @State private var isRestoringRegisteredShortcut = false
 
     var body: some Scene {
@@ -49,6 +50,12 @@ struct knowzenoApp: App {
             SettingsView(settings: settings)
         }
         .commands {
+            CommandGroup(after: .appInfo) {
+                Button("Check for Updates...") {
+                    softwareUpdateController.checkForUpdates()
+                }
+            }
+
             CommandGroup(after: .help) {
                 Button("Show Onboarding") {
                     settings.showOnboardingAgain()

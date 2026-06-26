@@ -29,5 +29,13 @@
 	<string>$(KNOWZENO_SERVER_BASE_URL)</string>
 	<key>NSHumanReadableCopyright</key>
 	<string></string>
+	<key>SUEnableAutomaticChecks</key>
+	<true/>
+	<key>SUEnableInstallerLauncherService</key>
+	<true/>
+	<key>SUFeedURL</key>
+	<string>https://github.com/nickambrose7/knowzeno-mac-app/releases/latest/download/appcast.xml</string>
+	<key>SUPublicEDKey</key>
+	<string>32wRHP5t0bJm6vSb+ktyJaTPsVSkUABIT7QrQlJVc7w=</string>
 </dict>
 </plist>

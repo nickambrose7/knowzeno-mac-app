@@ -12,6 +12,11 @@ App Store.
 - A public `nickambrose7/knowzeno-mac-app` GitHub repository for release
   assets.
 - GitHub CLI installed and authenticated with `gh auth login`.
+- Sparkle's `generate_appcast` available on `PATH`, or `SPARKLE_BIN_DIR` set to
+  the directory containing it.
+- The Sparkle EdDSA private key stored outside the repo at
+  `~/.config/knowzeno/sparkle/ed25519_private_key`, or available in the login
+  Keychain for account `com.knowzeno.knowzeno`.
 
 Create the notarytool profile once:
 
@@ -67,10 +72,18 @@ Upload the notarized DMG to GitHub Releases. The website currently points at:
 https://github.com/nickambrose7/knowzeno-mac-app/releases/latest/download/Knowzeno.dmg
 ```
 
+Sparkle reads the appcast from:
+
+```text
+https://github.com/nickambrose7/knowzeno-mac-app/releases/latest/download/appcast.xml
+```
+
 Every public release must include an asset named exactly `Knowzeno.dmg`. The
 local package artifact is versioned, such as `Knowzeno-1.0-1.dmg`, but the
 uploaded GitHub release asset uses the stable name so the website can always
-link to the latest release.
+link to the latest release. Every release must also include `appcast.xml`,
+generated from the stable `Knowzeno.dmg` asset so Sparkle can discover and
+install updates.
 
 Use the helper script:
 
@@ -81,35 +94,44 @@ scripts/publish-github-release v1.0.0 build/direct-download/Knowzeno-1.0-1.dmg \
 ```
 
 The publish helper validates the stapled notarization ticket and Gatekeeper
-assessment before upload. If either check fails, do not upload that DMG; rebuild
-with `scripts/package-direct-download` without `--skip-notarization`.
+assessment, generates `appcast.xml`, then uploads both `Knowzeno.dmg` and
+`appcast.xml`. If validation fails, do not upload that DMG; rebuild with
+`scripts/package-direct-download` without `--skip-notarization`.
 
-If the release already exists and only the `Knowzeno.dmg` asset needs to be
-replaced, use the guarded replacement mode:
+If the release already exists and the assets need to be replaced, use the
+guarded replacement mode:
 
 ```sh
 scripts/publish-github-release v1.0.0 build/direct-download/Knowzeno-1.0-1.dmg --clobber
 ```
 
-Or run the equivalent `gh` commands manually:
+Or run the equivalent commands manually:
 
 ```sh
-cp build/direct-download/Knowzeno-1.0-1.dmg /tmp/Knowzeno.dmg
-xcrun stapler validate /tmp/Knowzeno.dmg
-spctl -a -vvv -t install /tmp/Knowzeno.dmg
-gh release create v1.0.0 /tmp/Knowzeno.dmg \
+mkdir -p /tmp/knowzeno-release
+cp build/direct-download/Knowzeno-1.0-1.dmg /tmp/knowzeno-release/Knowzeno.dmg
+xcrun stapler validate /tmp/knowzeno-release/Knowzeno.dmg
+spctl -a -vvv -t install /tmp/knowzeno-release/Knowzeno.dmg
+scripts/generate-appcast /tmp/knowzeno-release
+gh release create v1.0.0 \
+  /tmp/knowzeno-release/Knowzeno.dmg \
+  /tmp/knowzeno-release/appcast.xml \
   --repo nickambrose7/knowzeno-mac-app \
   --title "Knowzeno 1.0.0" \
   --notes "Direct download release."
 ```
 
-If the release already exists and only the asset needs to be replaced:
+If the release already exists and the assets need to be replaced:
 
 ```sh
-cp build/direct-download/Knowzeno-1.0-1.dmg /tmp/Knowzeno.dmg
-xcrun stapler validate /tmp/Knowzeno.dmg
-spctl -a -vvv -t install /tmp/Knowzeno.dmg
-gh release upload v1.0.0 /tmp/Knowzeno.dmg \
+mkdir -p /tmp/knowzeno-release
+cp build/direct-download/Knowzeno-1.0-1.dmg /tmp/knowzeno-release/Knowzeno.dmg
+xcrun stapler validate /tmp/knowzeno-release/Knowzeno.dmg
+spctl -a -vvv -t install /tmp/knowzeno-release/Knowzeno.dmg
+scripts/generate-appcast /tmp/knowzeno-release
+gh release upload v1.0.0 \
+  /tmp/knowzeno-release/Knowzeno.dmg \
+  /tmp/knowzeno-release/appcast.xml \
   --repo nickambrose7/knowzeno-mac-app \
   --clobber
 ```
@@ -130,26 +152,19 @@ After upload:
 9. Paste a website API token.
 10. Grant Accessibility permission.
 11. Capture selected text and send it to production.
+12. Choose Knowzeno > Check for Updates and confirm Sparkle can read the
+    release appcast.
 
 ## Updates
 
-Direct download does not include updates by default. Add Sparkle 2 before users
-depend on automatic upgrades:
+Direct download updates use Sparkle 2. The app checks automatically and exposes
+Knowzeno > Check for Updates.
 
-1. Add `https://github.com/sparkle-project/Sparkle` to the Xcode project.
-2. Link the `Sparkle` product to the app target.
-3. Add an updater controller to the app lifecycle.
-4. Generate Sparkle EdDSA keys and store the private key outside the repo.
-5. Add `SUFeedURL` and `SUPublicEDKey` to `Config/knowzeno-Info.plist`.
-6. Add Sparkle sandbox temporary mach-lookup exceptions to
-   `knowzeno/knowzeno.entitlements`.
-7. Generate and upload `appcast.xml` for each release.
-
-Once Sparkle is installed, use:
+The appcast is generated during publishing. To generate it manually, use:
 
 ```sh
 scripts/generate-appcast path/to/upload-directory
 ```
 
-The upload directory should contain notarized release DMGs. Upload the resulting
-`appcast.xml` next to the DMGs.
+The upload directory should contain a notarized release DMG named
+`Knowzeno.dmg`. Upload the resulting `appcast.xml` next to the DMG.

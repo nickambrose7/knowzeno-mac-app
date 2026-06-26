@@ -11,6 +11,11 @@ releases. Upload the resulting appcast.xml next to the DMGs.
 Environment:
   SPARKLE_BIN_DIR  Directory containing generate_appcast. If omitted, this
                    script looks for generate_appcast on PATH.
+  SPARKLE_ED_KEY_FILE
+                   Private EdDSA key file. Default:
+                   ~/.config/knowzeno/sparkle/ed25519_private_key when present.
+  SPARKLE_ACCOUNT  Keychain account for the private EdDSA key when no key file
+                   is used. Default: com.knowzeno.knowzeno.
 EOF
 }
 
@@ -43,4 +48,14 @@ if [[ -z "$generate_appcast" || ! -x "$generate_appcast" ]]; then
   exit 1
 fi
 
-"$generate_appcast" "$updates_directory"
+default_ed_key_file="$HOME/.config/knowzeno/sparkle/ed25519_private_key"
+generate_appcast_args=()
+if [[ -n "${SPARKLE_ED_KEY_FILE:-}" ]]; then
+  generate_appcast_args+=(--ed-key-file "$SPARKLE_ED_KEY_FILE")
+elif [[ -f "$default_ed_key_file" ]]; then
+  generate_appcast_args+=(--ed-key-file "$default_ed_key_file")
+else
+  generate_appcast_args+=(--account "${SPARKLE_ACCOUNT:-com.knowzeno.knowzeno}")
+fi
+
+"$generate_appcast" "${generate_appcast_args[@]}" "$updates_directory"

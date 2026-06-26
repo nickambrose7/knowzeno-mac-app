@@ -28,17 +28,27 @@ if [[ "$1" != "release" ]]; then
   echo "unexpected gh command: $*" >&2
   exit 1
 fi
-asset="$4"
-if [[ "$2" == "upload" ]]; then
-  asset="$4"
-elif [[ "$2" == "create" ]]; then
-  asset="$4"
-else
+if [[ "$2" != "upload" && "$2" != "create" ]]; then
   echo "unexpected gh release command: $*" >&2
   exit 1
 fi
-if [[ "$(basename "$asset")" != "Knowzeno.dmg" ]]; then
-  echo "unexpected release asset: $asset" >&2
+
+shift 3
+assets=()
+while [[ $# -gt 0 && "$1" != --* ]]; do
+  assets+=("$1")
+  shift
+done
+if [[ "${#assets[@]}" -ne 2 ]]; then
+  echo "expected two release assets, got ${#assets[@]}: ${assets[*]:-}" >&2
+  exit 1
+fi
+if [[ "$(basename "${assets[0]}")" != "Knowzeno.dmg" ]]; then
+  echo "unexpected release asset: ${assets[0]}" >&2
+  exit 1
+fi
+if [[ "$(basename "${assets[1]}")" != "appcast.xml" ]]; then
+  echo "unexpected release asset: ${assets[1]}" >&2
   exit 1
 fi
 '
@@ -67,6 +77,17 @@ case "$*" in
 esac
 '
 
+write_stub "$fake_bin/generate_appcast" '#!/usr/bin/env bash
+set -euo pipefail
+updates_dir="${@: -1}"
+printf "%s\n" "$*" >> "${GENERATE_APPCAST_LOG:?}"
+if [[ ! -f "$updates_dir/Knowzeno.dmg" ]]; then
+  echo "expected stable DMG before appcast generation" >&2
+  exit 1
+fi
+printf "%s\n" "<rss></rss>" > "$updates_dir/appcast.xml"
+'
+
 run_case() {
   local name="$1"
   shift
@@ -84,6 +105,7 @@ run_case() {
     GH_LOG="$case_dir/gh.log" \
     XCRUN_LOG="$case_dir/xcrun.log" \
     SPCTL_LOG="$case_dir/spctl.log" \
+    GENERATE_APPCAST_LOG="$case_dir/generate_appcast.log" \
     PATH="$fake_bin:$PATH" \
     GITHUB_RELEASE_REPOSITORY="example/knowzeno-mac-app" \
     "$script" v1.2.3 "$dmg" --title "Knowzeno 1.2.3" --notes "Release notes." "$@"
@@ -102,12 +124,16 @@ assert_file_contains() {
 run_case publishes_after_notarization_check
 assert_file_contains "$tmp_root/publishes_after_notarization_check/xcrun.log" "stapler validate"
 assert_file_contains "$tmp_root/publishes_after_notarization_check/spctl.log" "-t install"
+assert_file_contains "$tmp_root/publishes_after_notarization_check/generate_appcast.log" "/"
 assert_file_contains "$tmp_root/publishes_after_notarization_check/gh.log" "release create v1.2.3"
+assert_file_contains "$tmp_root/publishes_after_notarization_check/gh.log" "appcast.xml"
 
 run_case replaces_existing_asset_after_notarization_check --clobber
 assert_file_contains "$tmp_root/replaces_existing_asset_after_notarization_check/xcrun.log" "stapler validate"
 assert_file_contains "$tmp_root/replaces_existing_asset_after_notarization_check/spctl.log" "-t install"
+assert_file_contains "$tmp_root/replaces_existing_asset_after_notarization_check/generate_appcast.log" "/"
 assert_file_contains "$tmp_root/replaces_existing_asset_after_notarization_check/gh.log" "release upload v1.2.3"
+assert_file_contains "$tmp_root/replaces_existing_asset_after_notarization_check/gh.log" "appcast.xml"
 assert_file_contains "$tmp_root/replaces_existing_asset_after_notarization_check/gh.log" "--clobber"
 
 if run_case blocks_when_stapler_fails XCRUN_EXIT=65; then

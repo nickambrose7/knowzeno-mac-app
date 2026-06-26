@@ -78,11 +78,12 @@ scripts/publish-github-release v1.0.0 build/direct-download/Knowzeno-1.0-1.dmg
 ```
 
 The helper validates the stapled notarization ticket and Gatekeeper assessment,
-then uploads the asset as `Knowzeno.dmg`, which keeps the website's
-`/download/mac` redirect stable.
+generates the Sparkle appcast, then uploads the assets as `Knowzeno.dmg` and
+`appcast.xml`. This keeps the website's `/download/mac` redirect and Sparkle's
+update feed stable.
 
-To replace `Knowzeno.dmg` on an existing release after rebuilding a notarized
-artifact:
+To replace `Knowzeno.dmg` and `appcast.xml` on an existing release after
+rebuilding a notarized artifact:
 
 ```sh
 scripts/publish-github-release v1.0.0 build/direct-download/Knowzeno-1.0-1.dmg --clobber

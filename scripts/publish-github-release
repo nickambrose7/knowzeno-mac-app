@@ -5,10 +5,14 @@ usage() {
   cat <<'EOF'
 Usage: scripts/publish-github-release <tag> <dmg-path> [--title TITLE] [--notes NOTES] [--clobber]
 
-Publishes a notarized DMG to GitHub Releases using the stable public asset name
-Knowzeno.dmg. The website download URL points at:
+Publishes a notarized DMG and Sparkle appcast to GitHub Releases using stable
+public asset names. The website download URL points at:
 
   https://github.com/nickambrose7/knowzeno-mac-app/releases/latest/download/Knowzeno.dmg
+
+Sparkle reads updates from:
+
+  https://github.com/nickambrose7/knowzeno-mac-app/releases/latest/download/appcast.xml
 
 Environment:
   GITHUB_RELEASE_REPOSITORY  GitHub repository in OWNER/REPO form.
@@ -19,6 +23,7 @@ Prerequisites:
   - `gh auth login` completed for an account that can publish releases.
   - The release repository is public before sharing the download URL.
   - The DMG has been notarized and stapled by scripts/package-direct-download.
+  - Sparkle generate_appcast is available on PATH or through SPARKLE_BIN_DIR.
   - Use --clobber only when replacing Knowzeno.dmg on an existing release.
 EOF
 }
@@ -99,14 +104,22 @@ trap cleanup EXIT
 stable_dmg_path="$publish_root/Knowzeno.dmg"
 cp "$dmg_path" "$stable_dmg_path"
 
+echo "Generating Sparkle appcast..."
+"$(dirname "${BASH_SOURCE[0]}")/generate-appcast" "$publish_root"
+appcast_path="$publish_root/appcast.xml"
+if [[ ! -f "$appcast_path" ]]; then
+  echo "Sparkle appcast not generated: $appcast_path" >&2
+  exit 1
+fi
+
 if [[ "$clobber" -eq 1 ]]; then
-  echo "Replacing Knowzeno.dmg on $repo release $tag..."
-  gh release upload "$tag" "$stable_dmg_path" \
+  echo "Replacing Knowzeno.dmg and appcast.xml on $repo release $tag..."
+  gh release upload "$tag" "$stable_dmg_path" "$appcast_path" \
     --repo "$repo" \
     --clobber
 else
-  echo "Publishing $stable_dmg_path to $repo as $tag..."
-  gh release create "$tag" "$stable_dmg_path" \
+  echo "Publishing $stable_dmg_path and $appcast_path to $repo as $tag..."
+  gh release create "$tag" "$stable_dmg_path" "$appcast_path" \
     --repo "$repo" \
     --title "$title" \
     --notes "$notes"
@@ -114,3 +127,5 @@ fi
 
 echo "Download URL:"
 echo "https://github.com/$repo/releases/latest/download/Knowzeno.dmg"
+echo "Appcast URL:"
+echo "https://github.com/$repo/releases/latest/download/appcast.xml"

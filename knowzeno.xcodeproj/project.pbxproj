@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		8D2000012FE0000000000001 /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = 8D2000032FE0000000000003 /* Sparkle */; };
 		8D2E08942FA12E66005B474C /* AGENTS.md in Resources */ = {isa = PBXBuildFile; fileRef = 8D2E08922FA12E5D005B474C /* AGENTS.md */; };
 /* End PBXBuildFile section */
 
@@ -52,6 +53,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				8D2000012FE0000000000001 /* Sparkle in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -117,6 +119,7 @@
 			);
 			name = knowzeno;
 			packageProductDependencies = (
+				8D2000032FE0000000000003 /* Sparkle */,
 			);
 			productName = knowzeno;
 			productReference = 8DA61A5D2F9EFC3100AD9A02 /* knowzeno.app */;
@@ -173,6 +176,9 @@
 			);
 			mainGroup = 8DA61A542F9EFC3100AD9A02;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				8D2000022FE0000000000002 /* XCRemoteSwiftPackageReference "Sparkle" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 8DA61A5E2F9EFC3100AD9A02 /* Products */;
 			projectDirPath = "";
@@ -226,6 +232,25 @@
 			targetProxy = 8DA61A6B2F9EFC3400AD9A02 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		8D2000022FE0000000000002 /* XCRemoteSwiftPackageReference "Sparkle" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/sparkle-project/Sparkle";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.9.3;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		8D2000032FE0000000000003 /* Sparkle */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 8D2000022FE0000000000002 /* XCRemoteSwiftPackageReference "Sparkle" */;
+			productName = Sparkle;
+		};
+/* End XCSwiftPackageProductDependency section */
 
 /* Begin XCBuildConfiguration section */
 		8DA61A7C2F9EFC3400AD9A02 /* Debug */ = {
