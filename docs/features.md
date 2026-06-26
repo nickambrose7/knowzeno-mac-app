@@ -25,7 +25,11 @@ The main app interface has two tabs:
    without using the mouse. Pressing Tab from the editor also moves focus to the
    send button instead of inserting tab text; Return submits from the send
    button. Repeated captures append to the editor with a blank line separator,
-   and only the clear button empties the editor.
+   and only the clear button empties the editor. Capturing selected text from
+   the Library tab switches back to Capture so the new text is visible. The app
+   blocks sending notes over 60,000 characters and shows a message asking the
+   user to break the source into multiple notes; server context-window errors
+   use the same message.
 2. Library: show recent learning items with their source notes, preview long
    text by default, expand rows on demand, choose a 20/50/100 item limit, and
    edit, archive, unarchive, or delete accidental learning items.

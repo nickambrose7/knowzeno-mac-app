@@ -11,6 +11,7 @@ import SwiftUI
 struct knowzenoApp: App {
     @Environment(\.openWindow) private var openWindow
     @State private var capture = SelectedTextCapture()
+    @State private var navigation = AppNavigation()
     @State private var activeApplicationTracker = ActiveApplicationTracker()
     @State private var settings = AppSettings()
     @State private var hotKeyManager: HotKeyManager?
@@ -21,7 +22,7 @@ struct knowzenoApp: App {
         Window("knowzeno", id: AppWindow.main) {
             Group {
                 if settings.hasCompletedOnboarding {
-                    ContentView(capture: capture, settings: settings)
+                    ContentView(capture: capture, settings: settings, navigation: navigation)
                 } else {
                     OnboardingView(settings: settings)
                 }
@@ -131,6 +132,10 @@ struct knowzenoApp: App {
     }
 
     private func showMainWindow(focusingSendButton: Bool = false) {
+        if focusingSendButton {
+            navigation.showCapture()
+        }
+
         openWindow(id: AppWindow.main)
         NSApp.activate(ignoringOtherApps: true)
 

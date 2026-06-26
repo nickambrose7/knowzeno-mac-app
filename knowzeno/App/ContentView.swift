@@ -5,23 +5,44 @@
 //  Created by Nick Ambrose on 4/26/26.
 //
 
+import Observation
 import SwiftUI
+
+@MainActor
+@Observable
+final class AppNavigation {
+    var selectedTab = AppTab.capture
+
+    func showCapture() {
+        selectedTab = .capture
+    }
+}
+
+enum AppTab: Hashable {
+    case capture
+    case library
+}
 
 struct ContentView: View {
     let capture: SelectedTextCapture
     let settings: AppSettings
+    let navigation: AppNavigation
 
     var body: some View {
-        TabView {
+        @Bindable var navigation = navigation
+
+        TabView(selection: $navigation.selectedTab) {
             CaptureView(capture: capture, settings: settings)
                 .tabItem {
                     Label("Capture", systemImage: "text.viewfinder")
                 }
+                .tag(AppTab.capture)
 
             LearningItemLibraryView(settings: settings)
                 .tabItem {
                     Label("Library", systemImage: "books.vertical")
                 }
+                .tag(AppTab.library)
         }
         .frame(minWidth: 520, minHeight: 520)
     }
@@ -146,6 +167,13 @@ private struct CaptureView: View {
         let text = capture.lastCapturedText
         sendStatusStyle = .neutral
 
+        guard SourceNoteTextLimit.canSend(text) else {
+            sendStatusMessage = SourceNoteTextLimit.errorMessage
+            sendStatusStyle = .error
+            focusedControl = .textEditor
+            return
+        }
+
         Task {
             await sendSourceNote(text)
         }
@@ -197,7 +225,7 @@ private struct CaptureView: View {
             sendStatusStyle = .success
             focusedControl = .textEditor
         } catch {
-            sendStatusMessage = error.localizedDescription
+            sendStatusMessage = SourceNoteTextLimit.userFacingMessage(for: error)
             sendStatusStyle = .error
         }
 
@@ -220,6 +248,28 @@ struct CaptureEditorKeyboardShortcuts {
         sendButtonIsDisabled: Bool
     ) -> CaptureEditorTabAction {
         sendButtonIsDisabled ? .consume : .focusSendButton
+    }
+}
+
+struct SourceNoteTextLimit {
+    static let maxCharacterCount = 60_000
+    static let errorMessage = "This note is too big to send. Break it up into multiple different notes."
+
+    static func canSend(_ text: String) -> Bool {
+        text.count <= maxCharacterCount
+    }
+
+    static func userFacingMessage(for error: Error) -> String {
+        let message = error.localizedDescription
+        let lowercaseMessage = message.lowercased()
+
+        if lowercaseMessage.localizedStandardContains("context")
+            || lowercaseMessage.localizedStandardContains("token")
+            || lowercaseMessage.localizedStandardContains("too large") {
+            return errorMessage
+        }
+
+        return message
     }
 }
 
@@ -327,5 +377,9 @@ private enum SendStatusStyle {
 }
 
 #Preview {
-    ContentView(capture: SelectedTextCapture(), settings: AppSettings())
+    ContentView(
+        capture: SelectedTextCapture(),
+        settings: AppSettings(),
+        navigation: AppNavigation()
+    )
 }
