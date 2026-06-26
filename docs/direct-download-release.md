@@ -40,6 +40,16 @@ Do not use an `api.knowzeno.com` subdomain unless DNS, TLS, and backend routing
 for that subdomain have been intentionally added. The package script fails if
 the Release build setting is not `https://knowzeno.com`.
 
+Before packaging a user-facing release, increment both Xcode build settings:
+
+- `MARKETING_VERSION`, such as `1.0.2`
+- `CURRENT_PROJECT_VERSION`, such as `3`
+
+Sparkle compares these values from the appcast against the installed app. If a
+release only replaces assets for the same version and build, Check for Updates
+can correctly report that the app is already up to date. Use `--clobber` only
+when replacing a broken artifact for the exact same app version/build.
+
 From the repository root:
 
 ```sh

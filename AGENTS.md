@@ -84,6 +84,10 @@ If SwiftData is configured to use CloudKit:
 - If installed, make sure SwiftLint returns no warnings or errors before committing.
 - After implementing any Mac app feature or UI change, run `scripts/run-mac-app`
   so the updated app is installed and launched for manual verification.
+- Before publishing a new direct-download app release, increment both
+  `MARKETING_VERSION` and `CURRENT_PROJECT_VERSION`. Sparkle uses these values
+  to decide whether an installed app has an update; do not only clobber an
+  existing GitHub release asset for user-facing changes.
 
 
 ## Xcode MCP
